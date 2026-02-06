@@ -1,0 +1,85 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------< com.learnplatform:knowledge-learning-platform >------------
+[INFO] Building knowledge-learning-platform 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:4.0.2:run (default-cli) > test-compile @ knowledge-learning-platform >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ knowledge-learning-platform ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 9 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ knowledge-learning-platform ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 31 source files with javac [debug parameters release 17] to target\classes
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ knowledge-learning-platform ---
+[INFO] skip non existing resourceDirectory E:\learn__course\learn__course\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.1:testCompile (default-testCompile) @ knowledge-learning-platform ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 1 source file with javac [debug parameters release 17] to target\test-classes
+[INFO] 
+[INFO] <<< spring-boot:4.0.2:run (default-cli) < test-compile @ knowledge-learning-platform <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:4.0.2:run (default-cli) @ knowledge-learning-platform ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.2)
+
+2026-02-06T12:48:28.412+08:00  INFO 34768 --- [  restartedMain] c.learnplatform.LearnCourseApplication   : Starting LearnCourseApplication using Java 21.0.9 with PID 34768 (E:\learn__course\learn__course\target\classes started by 28071 in E:\learn__course\learn__course)
+2026-02-06T12:48:28.414+08:00 DEBUG 34768 --- [  restartedMain] c.learnplatform.LearnCourseApplication   : Running with Spring Boot v4.0.2, Spring v7.0.3
+2026-02-06T12:48:28.414+08:00  INFO 34768 --- [  restartedMain] c.learnplatform.LearnCourseApplication   : No active profile set, falling back to 1 default profile: "default"
+2026-02-06T12:48:28.464+08:00  INFO 34768 --- [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-02-06T12:48:28.464+08:00  INFO 34768 --- [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-02-06T12:48:28.811+08:00  INFO 34768 --- [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data MongoDB repositories in DEFAULT mode.
+2026-02-06T12:48:28.852+08:00  INFO 34768 --- [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 37 ms. Found 6 MongoDB repository interfaces.
+2026-02-06T12:48:29.352+08:00  INFO 34768 --- [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8084 (http)
+2026-02-06T12:48:29.362+08:00  INFO 34768 --- [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-02-06T12:48:29.363+08:00  INFO 34768 --- [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.15]
+2026-02-06T12:48:29.391+08:00  INFO 34768 --- [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 927 ms
+2026-02-06T12:48:29.521+08:00  INFO 34768 --- [  restartedMain] org.mongodb.driver.client                : MongoClient with metadata {"driver": {"name": "mongo-java-driver|sync", "version": "5.6.2"}, "os": {"type": "Windows", "name": "Windows 11", "architecture": "amd64", "version": "10.0"}, "platform": "Java/Oracle Corporation/21.0.9+7-LTS-338"} created with settings MongoClientSettings{readPreference=primary, writeConcern=WriteConcern{w=null, wTimeout=null ms, journal=null}, retryWrites=true, retryReads=true, readConcern=ReadConcern{level=null}, credential=MongoCredential{mechanism=null, userName='root', source='admin', password=<hidden>, mechanismProperties=<hidden>}, transportSettings=null, commandListeners=[], codecRegistry=ProvidersCodecRegistry{codecProviders=[ValueCodecProvider{}, BsonValueCodecProvider{}, DBRefCodecProvider{}, DBObjectCodecProvider{}, DocumentCodecProvider{}, CollectionCodecProvider{}, IterableCodecProvider{}, MapCodecProvider{}, GeoJsonCodecProvider{}, GridFSFileCodecProvider{}, Jsr310CodecProvider{}, JsonObjectCodecProvider{}, BsonCodecProvider{}, com.mongodb.client.model.mql.ExpressionCodecProvider@760f9b4b, com.mongodb.Jep395RecordCodecProvider@4deb8f39, com.mongodb.KotlinCodecProvider@54262bb9, EnumCodecProvider{}]}, loggerSettings=LoggerSettings{maxDocumentLength=1000}, clusterSettings={hosts=[localhost:27018], srvServiceName=mongodb, mode=SINGLE, requiredClusterType=UNKNOWN, requiredReplicaSetName='null', serverSelector='null', clusterListeners='[]', serverSelectionTimeout='30000 ms', localThreshold='15 ms'}, socketSettings=SocketSettings{connectTimeoutMS=10000, readTimeoutMS=0, receiveBufferSize=0, proxySettings=ProxySettings{host=null, port=null, username=null, password=null}}, heartbeatSocketSettings=SocketSettings{connectTimeoutMS=10000, readTimeoutMS=10000, receiveBufferSize=0, proxySettings=ProxySettings{host=null, port=null, username=null, password=null}}, connectionPoolSettings=ConnectionPoolSettings{maxSize=100, minSize=0, maxWaitTimeMS=120000, maxConnectionLifeTimeMS=0, maxConnectionIdleTimeMS=0, maintenanceInitialDelayMS=0, maintenanceFrequencyMS=60000, connectionPoolListeners=[], maxConnecting=2}, serverSettings=ServerSettings{heartbeatFrequencyMS=10000, minHeartbeatFrequencyMS=500, serverMonitoringMode=AUTO, serverListeners='[]', serverMonitorListeners='[]'}, sslSettings=SslSettings{enabled=false, invalidHostNameAllowed=false, context=null}, applicationName='null', compressorList=[], uuidRepresentation=UNSPECIFIED, serverApi=null, autoEncryptionSettings=null, dnsClient=null, inetAddressResolver=null, contextProvider=null, timeoutMS=null}
+2026-02-06T12:48:29.546+08:00  INFO 34768 --- [localhost:27018] org.mongodb.driver.cluster               : Monitor thread successfully connected to server with description ServerDescription{address=localhost:27018, type=STANDALONE, cryptd=false, state=CONNECTED, ok=true, minWireVersion=0, maxWireVersion=27, maxDocumentSize=16777216, logicalSessionTimeoutMinutes=30, roundTripTimeNanos=18174600, minRoundTripTimeNanos=0}
+2026-02-06T12:48:29.957+08:00  INFO 34768 --- [  restartedMain] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name customUserDetailsService
+2026-02-06T12:48:30.052+08:00 DEBUG 34768 --- [  restartedMain] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with filters: DisableEncodeUrlFilter, WebAsyncManagerIntegrationFilter, SecurityContextHolderFilter, HeaderWriterFilter, CsrfFilter, LogoutFilter, UsernamePasswordAuthenticationFilter, RequestCacheAwareFilter, SecurityContextHolderAwareRequestFilter, AnonymousAuthenticationFilter, ExceptionTranslationFilter, AuthorizationFilter
+2026-02-06T12:48:30.316+08:00  INFO 34768 --- [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8084 (http) with context path '/'
+2026-02-06T12:48:30.320+08:00  INFO 34768 --- [  restartedMain] c.learnplatform.LearnCourseApplication   : Started LearnCourseApplication in 2.195 seconds (process running for 2.508)
+2026-02-06T12:48:30.332+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Remove using query: {} in collection: users.
+2026-02-06T12:48:30.497+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [username, email, password, role, createdAt, enabled, _class] in collection: users
+? 管理员用户已创建: admin / admin123
+2026-02-06T12:48:30.580+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [username, email, password, role, createdAt, enabled, _class] in collection: users
+? 普通用户已创建: user / password
+2026-02-06T12:48:30.586+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Executing count: {} in collection: courses
+2026-02-06T12:48:30.605+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [name, description, difficultyLevel, createdAt, published, instructor, estimatedHours, tags, chapters, _class] in collection: courses
+2026-02-06T12:48:30.624+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, title, content, orderIndex, createdAt, type, estimatedMinutes, skippable, concepts, progressList, _class] in collection: chapters
+2026-02-06T12:48:30.638+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, title, content, orderIndex, createdAt, type, estimatedMinutes, skippable, concepts, progressList, _class] in collection: chapters
+2026-02-06T12:48:30.641+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, title, content, orderIndex, createdAt, type, estimatedMinutes, skippable, concepts, progressList, _class] in collection: chapters
+2026-02-06T12:48:30.649+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, chapter, name, description, difficultyLevel, importanceWeight, createdAt, outgoingRelationships, incomingRelationships, _class] in collection: concepts
+2026-02-06T12:48:30.665+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, chapter, name, description, difficultyLevel, importanceWeight, createdAt, outgoingRelationships, incomingRelationships, _class] in collection: concepts
+2026-02-06T12:48:30.669+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, chapter, name, description, difficultyLevel, importanceWeight, createdAt, outgoingRelationships, incomingRelationships, _class] in collection: concepts
+2026-02-06T12:48:30.674+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, chapter, name, description, difficultyLevel, importanceWeight, createdAt, outgoingRelationships, incomingRelationships, _class] in collection: concepts
+2026-02-06T12:48:30.676+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, chapter, name, description, difficultyLevel, importanceWeight, createdAt, outgoingRelationships, incomingRelationships, _class] in collection: concepts
+2026-02-06T12:48:30.682+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, chapter, name, description, difficultyLevel, importanceWeight, createdAt, outgoingRelationships, incomingRelationships, _class] in collection: concepts
+2026-02-06T12:48:30.687+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, chapter, name, description, difficultyLevel, importanceWeight, createdAt, outgoingRelationships, incomingRelationships, _class] in collection: concepts
+2026-02-06T12:48:30.699+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [fromConcept, toConcept, relationshipType, weight, description, createdAt, _class] in collection: relationships
+2026-02-06T12:48:30.712+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [fromConcept, toConcept, relationshipType, weight, description, createdAt, _class] in collection: relationships
+2026-02-06T12:48:30.716+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [fromConcept, toConcept, relationshipType, weight, description, createdAt, _class] in collection: relationships
+2026-02-06T12:48:30.717+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [fromConcept, toConcept, relationshipType, weight, description, createdAt, _class] in collection: relationships
+2026-02-06T12:48:30.719+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [fromConcept, toConcept, relationshipType, weight, description, createdAt, _class] in collection: relationships
+2026-02-06T12:48:30.720+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [fromConcept, toConcept, relationshipType, weight, description, createdAt, _class] in collection: relationships
+Created Java programming course with chapters and concepts
+2026-02-06T12:48:30.722+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Executing count: {} in collection: courses
+2026-02-06T12:48:30.725+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [name, description, difficultyLevel, createdAt, published, instructor, estimatedHours, tags, chapters, _class] in collection: courses
+2026-02-06T12:48:30.727+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, title, content, orderIndex, createdAt, type, estimatedMinutes, skippable, concepts, progressList, _class] in collection: chapters
+2026-02-06T12:48:30.729+08:00 DEBUG 34768 --- [  restartedMain] o.s.data.mongodb.core.MongoTemplate      : Inserting Document containing fields: [course, title, content, orderIndex, createdAt, type, estimatedMinutes, skippable, concepts, progressList, _class] in collection: chapters
+Created frontend development course

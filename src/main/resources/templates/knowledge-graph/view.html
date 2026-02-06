@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+    th:replace="~{layout/main :: mainLayout}">
+<title th:text="${course} ? ${course.name} + ' - 知识图谱' : '知识图谱 - 学习平台'"></title>
+
+<main th:fragment="main-content">
+    <!-- 页面标题 -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-3">
+                <i class="bi bi-diagram-3"></i>
+                <span th:text="${course} ? ${course.name} + ' - 知识图谱' : '知识图谱导航'">知识图谱</span>
+            </h1>
+            <p class="text-muted">可视化展示知识点之间的关系，帮助理解学习路径</p>
+        </div>
+    </div>
+
+    <!-- 选择课程 -->
+    <div th:if="${!course}" class="card mb-4">
+        <div class="card-header">
+            <h3 class="h5 mb-0">
+                <i class="bi bi-collection"></i> 选择课程
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div th:each="course : ${courses}" class="col-md-4">
+                    <div class="card course-card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title" th:text="${course.name}">课程名称</h5>
+                            <p class="card-text text-muted small"
+                                th:text="${#strings.abbreviate(course.description, 100)}">课程描述</p>
+                            <a th:href="@{/knowledge-graph/course/{id}(id=${course.id})}"
+                                class="btn btn-primary btn-sm">
+                                <i class="bi bi-eye"></i> 查看知识图谱
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 知识图谱可视化 -->
+    <div th:if="${course}" class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3 class="h5 mb-0">
+                <i class="bi bi-diagram-3"></i> <span th:text="${course.name}">课程名</span> - 知识图谱
+            </h3>
+            <div>
+                <a th:href="@{/knowledge-graph}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- 图谱工具栏 -->
+            <div class="mb-3 d-flex justify-content-between align-items-center">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="resetZoom()">
+                        <i class="bi bi-arrow-repeat"></i> 重置视图
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="fitGraph()">
+                        <i class="bi bi-fullscreen"></i> 适应画布
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="toggleLabels">
+                        <i class="bi bi-fonts"></i> 切换标签
+                    </button>
+                </div>
+                <div>
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i> 点击节点查看详情 | 拖拽移动 | 滚轮缩放
+                    </small>
+                </div>
+            </div>
+
+            <!-- 图谱容器 -->
+            <div id="knowledge-graph" class="knowledge-graph-container"></div>
+
+            <!-- 图例 -->
+            <div class="mt-3 row">
+                <div class="col-md-6">
+                    <h6>难度等级：</h6>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <span class="badge bg-success">初级 (1-2级)</span>
+                        <span class="badge bg-warning">中级 (3级)</span>
+                        <span class="badge bg-danger">高级 (4-5级)</span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6>关系类型：</h6>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <span class="badge bg-primary">先修关系</span>
+                        <span class="badge bg-info">依赖关系</span>
+                        <span class="badge bg-secondary">使用关系</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 概念详情模态框 -->
+    <div class="modal fade" id="conceptModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">概念详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="conceptDetails">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<th:block th:if="${course}">
+    <script th:inline="javascript">
+        const courseId = /*[[${course.id}]]*/;
+        const graphContainer = document.getElementById('knowledge-graph');
+        const width = graphContainer.clientWidth;
+        const height = graphContainer.clientHeight || 600;
+
+        let svg, g, simulation, nodes, links, labelsVisible = true;
+
+        // 初始化图表
+        function initGraph() {
+            // 创建SVG
+            svg = d3.select("#knowledge-graph")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // 创建缩放行为
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                });
+
+            svg.call(zoom);
+
+            // 创建主组
+            g = svg.append("g");
+
+            // 添加缩放过滤器
+            g.append("defs").append("marker")
+                .attr("id", "arrowhead")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 20)
+                .attr("refY", 0)
+                .attr("orient", "auto")
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .append("svg:path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("fill", "#999");
+
+            // 加载数据
+            loadGraphData();
+        }
+
+        // 加载图谱数据
+        async function loadGraphData() {
+            try {
+                const response = await fetch(`/knowledge-graph/api/graph/${courseId}`);
+                const data = await response.json();
+
+                // 创建力导向图
+                simulation = d3.forceSimulation(data.nodes)
+                    .force("link", d3.forceLink(data.links).id(d => d.id).distance(100))
+                    .force("charge", d3.forceManyBody().strength(-300))
+                    .force("center", d3.forceCenter(width / 2, height / 2))
+                    .force("collision", d3.forceCollide().radius(50));
+
+                // 创建连接线
+                const link = g.append("g")
+                    .selectAll("line")
+                    .data(data.links)
+                    .enter().append("line")
+                    .attr("class", "graph-link")
+                    .attr("stroke-width", d => 2 * Math.sqrt(d.weight));
+
+                // 创建节点组
+                const node = g.append("g")
+                    .selectAll("g")
+                    .data(data.nodes)
+                    .enter().append("g")
+                    .attr("class", "graph-node")
+                    .call(d3.drag()
+                        .on("start", dragstarted)
+                        .on("drag", dragged)
+                        .on("end", dragended))
+                    .on("click", (event, d) => showConceptDetails(d));
+
+                // 创建节点圆圈
+                node.append("circle")
+                    .attr("r", d => 15 + (d.weight / 20))
+                    .attr("fill", d => getNodeColor(d.level))
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 2);
+
+                // 创建节点标签
+                node.append("text")
+                    .attr("class", "graph-label")
+                    .attr("dy", -20)
+                    .attr("fill", "#333")
+                    .text(d => d.name)
+                    .style("display", labelsVisible ? "block" : "none");
+
+                // 添加工具提示
+                node.append("title")
+                    .text(d => `${d.name}\n难度级别: ${d.level}\n重要程度: ${d.weight}`);
+
+                // 绑定数据
+                simulation.nodes(data.nodes).on("tick", ticked);
+                simulation.force("link").links(data.links);
+
+                function ticked() {
+                    link
+                        .attr("x1", d => d.source.x)
+                        .attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x)
+                        .attr("y2", d => d.target.y);
+
+                    node
+                        .attr("transform", d => `translate(${d.x},${d.y})`);
+                }
+
+            } catch (error) {
+                console.error('加载图谱数据失败:', error);
+            }
+        }
+
+        // 获取节点颜色（根据难度等级）
+        function getNodeColor(level) {
+            if (level <= 2) return "#28a745"; // 绿色 - 初级
+            if (level === 3) return "#ffc107"; // 黄色 - 中级
+            return "#dc3545"; // 红色 - 高级
+        }
+
+        // 拖拽事件
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // 重置视图
+        function resetZoom() {
+            svg.transition().duration(750).call(
+                d3.zoom().transform,
+                d3.zoomIdentity
+            );
+        }
+
+        // 适应画布
+        function fitGraph() {
+            // 递归查找所有元素边界
+            const bounds = g.node().getBBox();
+            const parent = graphContainer;
+            const fullWidth = parent.clientWidth;
+            const fullHeight = parent.clientHeight;
+            const width = bounds.width;
+            const height = bounds.height;
+            const midX = bounds.x + width / 2;
+            const midY = bounds.y + height / 2;
+
+            if (width === 0 || height === 0) return;
+
+            const scale = 0.9 / Math.max(width / fullWidth, height / fullHeight);
+            const translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
+
+            svg.transition()
+                .duration(750)
+                .call(d3.zoom().transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+        }
+
+        // 切换标签显示
+        document.getElementById('toggleLabels').addEventListener('click', () => {
+            labelsVisible = !labelsVisible;
+            d3.selectAll('.graph-label').style("display", labelsVisible ? "block" : "none");
+        });
+
+        // 显示概念详情
+        async function showConceptDetails(d) {
+            const modal = new bootstrap.Modal(document.getElementById('conceptModal'));
+            modal.show();
+
+            // 这里可以加载概念详情
+            document.getElementById('conceptDetails').innerHTML = `
+            <div class="mb-3">
+                <h4>${d.name}</h4>
+                <span class="badge bg-primary">难度等级: ${d.level}</span>
+                <span class="badge bg-info ms-2">重要程度: ${d.weight}</span>
+            </div>
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> 概念详情功能正在开发中...
+            </div>
+        `;
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', initGraph);
+
+        // 删除模态框相关代码
+    </script>
+</th:block>
+
+</html>

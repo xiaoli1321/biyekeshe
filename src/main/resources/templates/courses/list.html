@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+    th:replace="~{layout/main :: mainLayout}">
+<title th:text="'课程列表 - 学习平台'"></title>
+
+<main th:fragment="main-content">
+    <!-- 页面标题和统计 -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-3">
+                <i class="bi bi-collection"></i> 课程中心
+            </h1>
+            <p class="text-muted">探索我们的课程库，开始您的学习之旅</p>
+        </div>
+    </div>
+
+    <!-- 搜索和筛选栏 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form th:action="@{/courses}" method="get" class="row g-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" name="keyword" th:value="${keyword}"
+                            placeholder="搜索课程名称、描述或标签">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select name="difficulty" class="form-select" onchange="this.form.submit()">
+                        <option value="">所有难度</option>
+                        <option th:each="level : ${T(com.learnplatform.entity.Course$DifficultyLevel).values()}"
+                            th:value="${level}"
+                            th:text="${level == 'BEGINNER'} ? '初级' : (${level == 'INTERMEDIATE'} ? '中级' : '高级')"
+                            th:selected="${difficulty == level}"></option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> 搜索
+                    </button>
+                    <a th:href="@{/courses}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> 重置
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 课程列表 -->
+    <div class="row g-4">
+        <div th:if="${courses.empty}" class="col-12">
+            <div class="alert alert-info text-center py-5">
+                <i class="bi bi-info-circle display-4 d-block mb-3"></i>
+                <h4>暂无课程</h4>
+                <p class="mb-0">请稍后再试或联系管理员添加课程。</p>
+            </div>
+        </div>
+
+        <div th:each="course : ${courses.content}" class="col-md-6 col-lg-4">
+            <div class="card h-100 course-card">
+                <div class="position-relative">
+                    <!-- 占位封面图 -->
+                    <div class="bg-primary text-white d-flex align-items-center justify-content-center"
+                        style="height: 180px; border-radius: 12px 12px 0 0;">
+                        <div class="text-center">
+                            <i class="bi bi-book display-4"></i>
+                            <div class="mt-2" th:text="${course.name}">课程名称</div>
+                        </div>
+                    </div>
+                    <!-- 难度标签 -->
+                    <span class="badge bg-light position-absolute top-0 end-0 m-3"
+                        th:classappend="${course.difficultyLevel == 'BEGINNER'} ? 'text-success' : (${course.difficultyLevel == 'INTERMEDIATE'} ? 'text-warning' : 'text-danger')">
+                        <span th:text="${course.difficultyLevel == 'BEGINNER'} ? '初级' :
+                                       (${course.difficultyLevel == 'INTERMEDIATE'} ? '中级' : '高级')">难度</span>
+                    </span>
+                </div>
+
+                <div class="card-body">
+                    <h5 class="card-title" th:text="${course.name}">课程名称</h5>
+                    <p class="card-text text-muted" th:text="${#strings.abbreviate(course.description, 100)}">
+                        课程描述
+                    </p>
+
+                    <!-- 课程信息 -->
+                    <div class="d-flex justify-content-between text-muted small mb-3">
+                        <span th:if="${course.instructor}">
+                            <i class="bi bi-person"></i> <span th:text="${course.instructor}">讲师</span>
+                        </span>
+                        <span th:if="${course.estimatedHours}">
+                            <i class="bi bi-clock"></i> <span th:text="${course.estimatedHours} + '小时'">时长</span>
+                        </span>
+                    </div>
+
+                    <!-- 标签 -->
+                    <div class="mb-3">
+                        <span th:if="${course.tags}" th:each="tag : ${#strings.arraySplit(course.tags, ',')}"
+                            class="badge bg-secondary me-1" th:text="${#strings.trim(tag)}">标签</span>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-transparent border-top-0">
+                    <div class="d-grid gap-2">
+                        <a th:href="@{/courses/{id}(id=${course.id})}" class="btn btn-primary">
+                            <i class="bi bi-play-circle"></i> 开始学习
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分页 -->
+    <div th:if="${totalPages > 1}" class="row mt-4">
+        <div class="col">
+            <nav aria-label="课程分页">
+                <ul class="pagination justify-content-center">
+                    <!-- 上一页 -->
+                    <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                        <a class="page-link"
+                            th:href="@{/courses(page=${currentPage - 1}, keyword=${keyword}, difficulty=${difficulty})}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+
+                    <!-- 页码 -->
+                    <li class="page-item" th:each="pageNum : ${#numbers.sequence(0, totalPages - 1)}"
+                        th:classappend="${pageNum == currentPage} ? 'active'">
+                        <a class="page-link"
+                            th:href="@{/courses(page=${pageNum}, keyword=${keyword}, difficulty=${difficulty})}"
+                            th:text="${pageNum + 1}">1</a>
+                    </li>
+
+                    <!-- 下一页 -->
+                    <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled'">
+                        <a class="page-link"
+                            th:href="@{/courses(page=${currentPage + 1}, keyword=${keyword}, difficulty=${difficulty})}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- 分页信息 -->
+            <div class="text-center text-muted">
+                显示第 <span th:text="${currentPage * 12 + 1}">1</span> 到
+                <span th:text="${(currentPage + 1) * 12 < totalItems ? (currentPage + 1) * 12 : totalItems}">12</span>
+                条，
+                共 <span th:text="${totalItems}">0</span> 条记录
+            </div>
+        </div>
+    </div>
+</main>
+
+</html>

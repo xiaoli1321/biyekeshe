@@ -1,0 +1,49 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.restoreBackup
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Eclipse
+.settings/
+.project
+.classpath
+.factorypath
+
+# VS Code
+.vscode/
+
+# Frontend
+learn-platform-frontend/node_modules/
+learn-platform-frontend/dist/
+learn-platform-frontend/.env.local
+learn-platform-frontend/.env.development.local
+learn-platform-frontend/.env.test.local
+learn-platform-frontend/.env.production.local
+learn-platform-frontend/npm-debug.log*
+learn-platform-frontend/yarn-debug.log*
+learn-platform-frontend/yarn-error.log*
+learn-platform-frontend/.eslintcache
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Temp
+tmp/

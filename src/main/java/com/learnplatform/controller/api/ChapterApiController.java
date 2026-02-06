@@ -1,0 +1,232 @@
+package com.learnplatform.controller.api;
+
+import com.learnplatform.dto.ApiResponse;
+import com.learnplatform.dto.response.ChapterDto;
+import com.learnplatform.dto.response.ChapterProgressDto;
+import com.learnplatform.entity.Chapter;
+import com.learnplatform.security.UserPrincipal;
+import com.learnplatform.service.ChapterService;
+import com.learnplatform.service.ProgressService;
+import com.learnplatform.util.DtoConverter;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@Tag(name = "章节管理", description = "章节相关的API接口")
+@RestController
+@RequestMapping("/api/chapters")
+@CrossOrigin(origins = "*", maxAge = 3600)
+public class ChapterApiController {
+
+    @Autowired
+    private ChapterService chapterService;
+
+    @Autowired
+    private ProgressService progressService;
+
+    @Operation(summary = "获取章节详情", description = "根据章节ID获取章节详细信息")
+    @GetMapping("/{id}")
+    public ApiResponse<ChapterDto> getChapterById(
+            @Parameter(description = "章节ID", required = true)
+            @PathVariable String id
+    ) {
+        Optional<Chapter> chapterOpt = chapterService.findChapterById(id);
+        if (chapterOpt.isEmpty()) {
+            return ApiResponse.error("章节未找到", "CHAPTER_NOT_FOUND");
+        }
+
+        ChapterDto chapterDto = ChapterDto.fromChapter(chapterOpt.get());
+        return ApiResponse.success(chapterDto, "获取章节详情成功");
+    }
+
+    @Operation(summary = "创建章节", description = "为指定课程创建新章节（需要管理员权限）")
+    @PostMapping("/course/{courseId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<ChapterDto> createChapter(
+            @Parameter(description = "课程ID", required = true)
+            @PathVariable String courseId,
+
+            @Parameter(description = "章节信息", required = true)
+            @RequestBody Chapter chapter
+    ) {
+        try {
+            com.learnplatform.entity.Course course = new com.learnplatform.entity.Course();
+            course.setId(courseId);
+            chapter.setCourse(course);
+            Chapter savedChapter = chapterService.createChapter(chapter);
+            ChapterDto chapterDto = ChapterDto.fromChapter(savedChapter);
+
+            return ApiResponse.success(chapterDto, "章节创建成功");
+        } catch (Exception e) {
+            return ApiResponse.error("创建章节失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "更新章节", description = "更新章节信息（需要管理员权限）")
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<ChapterDto> updateChapter(
+            @Parameter(description = "章节ID", required = true)
+            @PathVariable String id,
+
+            @Parameter(description = "章节更新信息", required = true)
+            @RequestBody Chapter chapter
+    ) {
+        try {
+            // 验证章节存在
+            if (chapterService.findChapterById(id).isEmpty()) {
+                return ApiResponse.error("章节未找到", "CHAPTER_NOT_FOUND");
+            }
+
+            chapter.setId(id);
+            Chapter updatedChapter = chapterService.updateChapter(chapter);
+            ChapterDto chapterDto = ChapterDto.fromChapter(updatedChapter);
+
+            return ApiResponse.success(chapterDto, "章节更新成功");
+        } catch (Exception e) {
+            return ApiResponse.error("更新章节失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "删除章节", description = "删除指定章节（需要管理员权限）")
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Void> deleteChapter(
+            @Parameter(description = "章节ID", required = true)
+            @PathVariable String id
+    ) {
+        try {
+            // 验证章节存在
+            if (chapterService.findChapterById(id).isEmpty()) {
+                return ApiResponse.error("章节未找到", "CHAPTER_NOT_FOUND");
+            }
+
+            chapterService.deleteChapter(id);
+            return ApiResponse.success(null, "章节删除成功");
+        } catch (Exception e) {
+            return ApiResponse.error("删除章节失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "更新学习进度", description = "记录用户学习进度")
+    @PostMapping("/{chapterId}/progress")
+    public ApiResponse<String> updateLearningProgress(
+            @Parameter(description = "章节ID", required = true)
+            @PathVariable String chapterId,
+
+            @Parameter(description = "进度信息", required = true)
+            @RequestBody ProgressUpdateRequest request,
+            Authentication authentication
+    ) {
+        try {
+            String userId = getCurrentUserId(authentication);
+            if (userId == null) {
+                return ApiResponse.error("用户未登录", "NOT_AUTHENTICATED");
+            }
+
+            // 处理进度更新
+            boolean completed = request.isCompleted();
+            int elapsedMinutes = request.getElapsedMinutes();
+
+            // 保存或更新进度
+            progressService.updateProgress(userId, chapterId, completed, elapsedMinutes);
+
+            String message = completed ? "章节已完成" : "学习进度已保存";
+            return ApiResponse.success(null, message);
+        } catch (Exception e) {
+            return ApiResponse.error("更新进度失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "获取章节进度", description = "获取当前用户的章节学习进度")
+    @GetMapping("/{chapterId}/progress")
+    public ApiResponse<ChapterProgressDto> getChapterProgress(
+            @Parameter(description = "章节ID", required = true)
+            @PathVariable String chapterId,
+            Authentication authentication
+    ) {
+        try {
+            String userId = getCurrentUserId(authentication);
+            if (userId == null) {
+                return ApiResponse.error("用户未登录", "NOT_AUTHENTICATED");
+            }
+
+            ChapterProgressDto progressDto = progressService.getChapterProgressSummary(userId, chapterId);
+            return ApiResponse.success(progressDto, "获取章节进度成功");
+        } catch (Exception e) {
+            return ApiResponse.error("获取章节进度失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "获取章节概念", description = "获取章节中的知识点概念")
+    @GetMapping("/{id}/concepts")
+    public ApiResponse<List<String>> getChapterConcepts(
+            @Parameter(description = "章节ID", required = true)
+            @PathVariable String id
+    ) {
+        try {
+            List<String> concepts = chapterService.getChapterConcepts(id);
+            return ApiResponse.success(concepts, "获取概念列表成功");
+        } catch (Exception e) {
+            return ApiResponse.error("获取概念失败: " + e.getMessage());
+        }
+    }
+
+    // 内部类：进度更新请求
+    public static class ProgressUpdateRequest {
+        private boolean completed;
+        private int elapsedMinutes;
+
+        public ProgressUpdateRequest() {
+        }
+
+        public ProgressUpdateRequest(boolean completed, int elapsedMinutes) {
+            this.completed = completed;
+            this.elapsedMinutes = elapsedMinutes;
+        }
+
+        public boolean isCompleted() {
+            return completed;
+        }
+
+        public void setCompleted(boolean completed) {
+            this.completed = completed;
+        }
+
+        public int getElapsedMinutes() {
+            return elapsedMinutes;
+        }
+
+        public void setElapsedMinutes(int elapsedMinutes) {
+            this.elapsedMinutes = elapsedMinutes;
+        }
+    }
+
+    /**
+     * 获取当前认证用户ID
+     */
+    private String getCurrentUserId(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserPrincipal userPrincipal) {
+            return userPrincipal.getId();
+        }
+
+        String name = authentication.getName();
+        if (name != null && !"anonymousUser".equals(name)) {
+            return name;
+        }
+
+        return null;
+    }
+}
