@@ -30,9 +30,9 @@
             </router-link>
           </li>
           <li class="nav-item">
-            <router-link class="nav-link" to="/portfolios">
-              <i class="bi bi-pie-chart me-1"></i>
-              基金组合
+            <router-link class="nav-link" to="/finance">
+              <i class="bi bi-grid me-1"></i>
+              金融中心
             </router-link>
           </li>
           <li v-if="authStore.isAdmin" class="nav-item">
