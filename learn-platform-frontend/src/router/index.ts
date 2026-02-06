@@ -10,6 +10,7 @@ const CourseDetail = () => import('@/views/CourseDetail.vue')
 const CourseManage = () => import('@/views/CourseManage.vue')
 const ChapterView = () => import('@/views/ChapterView.vue')
 const KnowledgeGraph = () => import('@/views/KnowledgeGraph.vue')
+const PortfolioManage = () => import('@/views/PortfolioManage.vue')
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -62,6 +63,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/graph',
     name: 'KnowledgeGraph',
     component: KnowledgeGraph,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/portfolios',
+    name: 'PortfolioManage',
+    component: PortfolioManage,
     meta: { requiresAuth: true }
   }
 ]

@@ -154,3 +154,59 @@ export interface LearningProgress {
   elapsedMinutes: number
   lastAccessed: string
 }
+
+// 基金投资组合相关
+export interface Portfolio {
+  id: number
+  name: string
+  description?: string
+  benchmark_code?: string
+  is_default?: boolean | number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PortfolioPosition {
+  id: number
+  portfolio_id?: number
+  asset_type: 'fund' | 'stock'
+  asset_code: string
+  asset_name?: string
+  total_shares: number
+  average_cost: number
+  total_cost?: number
+  current_price?: number
+  current_value?: number
+  unrealized_pnl?: number
+  unrealized_pnl_pct?: number
+  sector?: string
+  notes?: string
+}
+
+export interface PortfolioTransaction {
+  id: number
+  portfolio_id?: number
+  asset_type: 'fund' | 'stock'
+  asset_code: string
+  asset_name?: string
+  transaction_type: 'buy' | 'sell' | 'dividend' | 'split' | 'transfer_in' | 'transfer_out'
+  shares: number
+  price: number
+  total_amount: number
+  fees?: number
+  transaction_date: string
+  notes?: string
+}
+
+export interface PortfolioSummary {
+  portfolio?: Portfolio
+  total_value?: number
+  total_cost?: number
+  total_pnl?: number
+  total_pnl_pct?: number
+  positions_count?: number
+  allocation?: {
+    by_type?: Record<string, number>
+    by_sector?: Record<string, number>
+  }
+}

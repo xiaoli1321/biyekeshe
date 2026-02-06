@@ -29,6 +29,12 @@
               课程
             </router-link>
           </li>
+          <li class="nav-item">
+            <router-link class="nav-link" to="/portfolios">
+              <i class="bi bi-pie-chart me-1"></i>
+              基金组合
+            </router-link>
+          </li>
           <li v-if="authStore.isAdmin" class="nav-item">
             <router-link class="nav-link" to="/admin/courses">
               <i class="bi bi-gear me-1"></i>

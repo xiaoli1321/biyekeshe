@@ -97,11 +97,11 @@ npm run dev
 
 ### 2. 启动后端服务
 ```bash
-cd learn-platform-frontend # 如果在前端目录
-cd .. # 回到项目根目录
-./mvnw spring-boot:run
+# 在项目根目录执行
+mvn clean spring-boot:run
 ```
-访问地址：http://localhost:8084/api
+访问地址：http://localhost:8084
+API 文档：http://localhost:8084/swagger-ui/index.html
 
 ### 3. 一键启动脚本
 双击运行：`START_SYSTEM.bat`
