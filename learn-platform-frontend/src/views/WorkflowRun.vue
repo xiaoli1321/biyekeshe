@@ -1,210 +1,146 @@
 <template>
-  <div class="main-wrapper">
-    <NavBar />
-    <div class="workflow-page content-wrapper">
-      <div class="container-xl">
+  <div class="workflow-edit-page">
+    <!-- 1. 顶部面包屑导航 -->
+    <div class="workflow-breadcrumb border-bottom px-4 py-2">
+      <nav class="d-flex align-items-center gap-2 small">
+        <span class="text-muted hover-link cursor-pointer">AI 工作流</span>
+        <i class="bi bi-chevron-right text-muted x-small"></i>
+        <span class="text-white fw-bold">创建 & 运行工作流</span>
+      </nav>
+    </div>
 
-        <!-- 页面头部 -->
-        <div class="page-header mb-4">
-          <div class="page-title-area">
-            <h1 class="page-title">
-              <i class="bi bi-lightning-charge-fill me-2 text-primary"></i>
-              AI 文档工作流
-            </h1>
-            <p class="page-subtitle text-muted">
-              选择工作流模板，配置主题，一键生成结构化文档
-            </p>
+    <div class="workflow-page-container">
+      <!-- 2. 工具栏 (新增步按钮 & 运行控制) -->
+      <div class="workflow-toolbar border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
+        <div class="d-flex gap-3">
+          <!-- 模板快捷选择 -->
+          <div class="input-group input-group-sm" style="width: 200px;">
+            <label class="input-group-text bg-transparent border-end-0"><i class="bi bi-template"></i></label>
+            <select v-model="selectedTemplateId" class="form-select bg-transparent" :disabled="isRunning">
+              <option v-for="tpl in templates" :key="tpl.id" :value="tpl.id">{{ tpl.name }}</option>
+            </select>
           </div>
+          <button @click="addCustomStep" class="btn btn-sm btn-outline-primary" :disabled="isRunning">
+            <i class="bi bi-plus-lg me-1"></i> 添加步骤
+          </button>
         </div>
 
-        <div class="workflow-layout">
-          <!-- 左侧：配置面板 -->
-          <div class="config-panel card">
-            <div class="card-body">
+        <div class="d-flex gap-2">
+          <div v-if="isRunning" class="status-indicator me-3 d-flex align-items-center gap-2">
+            <div class="run-spinner"></div>
+            <span class="text-primary small">正在执行第 {{ currentStepIndex + 1 }} 步...</span>
+          </div>
+          <button
+            v-if="!isRunning"
+            class="btn btn-primary btn-sm px-4"
+            :disabled="!canRun"
+            @click="handleRun"
+          >
+            <i class="bi bi-play-fill me-1"></i> {{ isFinished && hasContent ? '重新运行' : '立即执行' }}
+          </button>
+          <button v-else class="btn btn-danger btn-sm px-4" @click="handleStop">
+            <i class="bi bi-stop-fill me-1"></i> 停止
+          </button>
+        </div>
+      </div>
 
-              <!-- 步骤 1：选择模板 -->
-              <div class="config-section">
-                <h6 class="section-title">
-                  <span class="step-num">1</span> 选择工作流模板
-                </h6>
-                <div class="template-grid">
-                  <div
-                    v-for="tpl in templates"
-                    :key="tpl.id"
-                    class="template-card"
-                    :class="{ active: selectedTemplateId === tpl.id }"
-                    @click="selectTemplate(tpl.id)"
-                  >
-                    <div class="tpl-icon">{{ tplIcon(tpl.id) }}</div>
-                    <div class="tpl-info">
-                      <div class="tpl-name">{{ tpl.name }}</div>
-                      <div class="tpl-desc">{{ tpl.description }}</div>
-                    </div>
-                  </div>
-                </div>
+      <!-- 3. 主画布区 (横向滚动卡片) -->
+      <div class="workflow-canvas p-4">
+        <!-- 主题配置卡片 (必填) -->
+        <div class="d-flex align-items-start gap-3 flex-nowrap pb-4 overflow-auto canvas-scroller">
+          
+          <!-- 初始化配置卡片 -->
+          <div class="builder-card config-card">
+            <div class="card-header-simple">
+              <i class="bi bi-gear-fill me-2 text-warning"></i> 基础配置
+            </div>
+            <div class="card-body-simple p-3">
+              <div class="mb-3">
+                <label class="small text-muted mb-1 d-block">主题关键词</label>
+                <input v-model="topic" type="text" class="form-control form-control-sm" placeholder="AI 教育影响..." />
               </div>
-
-              <!-- 步骤 2：填写主题/变量 -->
-              <div class="config-section">
-                <h6 class="section-title">
-                  <span class="step-num">2</span> 填写内容主题
-                </h6>
-                <div class="mb-3">
-                  <label class="form-label">主题关键词 <span class="text-danger">*</span></label>
-                  <input
-                    v-model="topic"
-                    type="text"
-                    class="form-control"
-                    placeholder="例如：人工智能对教育的影响"
-                    :disabled="isRunning"
-                  />
-                  <div class="form-text text-muted">
-                    会自动替换步骤 prompt 中的 [TOPIC] 占位符
-                  </div>
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">报告名称（可选）</label>
-                  <input
-                    v-model="workflowName"
-                    type="text"
-                    class="form-control"
-                    placeholder="例如：AI教育影响分析报告"
-                    :disabled="isRunning"
-                  />
-                </div>
+              <div>
+                <label class="small text-muted mb-1 d-block">报告标题</label>
+                <input v-model="workflowName" type="text" class="form-control form-control-sm" placeholder="可选标题..." />
               </div>
-
-              <!-- 步骤 3：步骤预览 -->
-              <div class="config-section">
-                <h6 class="section-title">
-                  <span class="step-num">3</span> 工作流步骤预览
-                  <span class="badge bg-secondary ms-2">{{ currentSteps.length }} 步</span>
-                </h6>
-                <div class="steps-preview">
-                  <div
-                    v-for="(step, idx) in currentSteps"
-                    :key="step.id"
-                    class="step-item"
-                  >
-                    <div class="step-dot" :class="`dot-${step.type}`"></div>
-                    <div class="step-label">
-                      <span class="step-idx">{{ idx + 1 }}</span>
-                      <span class="step-type-badge" :class="`type-${step.type}`">{{ step.type }}</span>
-                      <span class="step-content-preview">
-                        {{ (step.title || step.content?.slice(0, 40) || '').replace(/\[TOPIC\]/g, '[TOPIC]') }}
-                      </span>
-                    </div>
-                  </div>
-                  <div v-if="currentSteps.length === 0" class="text-muted small">
-                    请先选择模板
-                  </div>
-                </div>
-              </div>
-
-              <!-- 运行按钮 -->
-              <div class="run-area">
-                <button
-                  v-if="!isRunning"
-                  class="btn btn-primary btn-run"
-                  :disabled="!canRun"
-                  @click="handleRun"
-                >
-                  <i class="bi bi-play-fill me-2"></i>
-                  {{ isFinished && hasContent ? '重新运行' : '开始生成' }}
-                </button>
-                <button
-                  v-else
-                  class="btn btn-danger btn-run"
-                  @click="handleStop"
-                >
-                  <i class="bi bi-stop-fill me-2"></i>
-                  停止生成
-                </button>
-
-                <!-- 导出 Markdown -->
-                <button
-                  v-if="isFinished && hasContent"
-                  class="btn btn-outline-secondary btn-export mt-2"
-                  @click="exportMarkdown"
-                >
-                  <i class="bi bi-download me-1"></i>
-                  导出 Markdown
-                </button>
-              </div>
-
-              <!-- 错误提示 -->
-              <div v-if="errorMsg" class="alert alert-danger mt-3 py-2 small" role="alert">
-                <i class="bi bi-exclamation-triangle me-1"></i>
-                {{ errorMsg }}
-              </div>
-
             </div>
           </div>
 
-          <!-- 右侧：实时结果面板 -->
-          <div class="result-panel">
+          <!-- 步骤连接线组件 (逻辑箭头) -->
+          <div class="step-connector mt-5"><i class="bi bi-arrow-right"></i></div>
 
-            <!-- 空态 -->
-            <div v-if="!hasContent && !isRunning" class="empty-state card">
-              <div class="empty-icon">🤖</div>
-              <h5>等待生成</h5>
-              <p class="text-muted">配置工作流后点击「开始生成」，AI 将实时输出文档内容</p>
-              <div class="feature-list">
-                <div class="feature-item"><i class="bi bi-check-circle-fill text-success me-2"></i>实时流式输出，打字机效果</div>
-                <div class="feature-item"><i class="bi bi-check-circle-fill text-success me-2"></i>支持 Markdown 富文本渲染</div>
-                <div class="feature-item"><i class="bi bi-check-circle-fill text-success me-2"></i>多步骤上下文关联生成</div>
-                <div class="feature-item"><i class="bi bi-check-circle-fill text-success me-2"></i>一键导出 Markdown 文档</div>
+          <!-- 动态步骤卡片流 -->
+          <template v-for="(step, idx) in currentSteps" :key="step.id">
+            <div class="builder-card" :class="{ 'card-running': idx === currentStepIndex && isRunning }">
+              <div class="card-header-simple d-flex justify-content-between">
+                <div>
+                  <span class="text-muted small me-2">#{{ idx + 1 }}</span>
+                  <select v-model="step.type" class="type-select-inline">
+                    <option value="text">文字生成</option>
+                    <option value="fixed">固定内容</option>
+                    <option value="table">表格数据</option>
+                  </select>
+                </div>
+                <div class="actions" v-if="selectedTemplateId === 'custom' && !isRunning">
+                  <i class="bi bi-trash text-danger cursor-pointer x-small" @click="removeCustomStep(idx)"></i>
+                </div>
+              </div>
+              <div class="card-body-simple p-0">
+                <input v-model="step.title" class="title-input-inline" placeholder="步骤标题..." />
+                <textarea 
+                  v-model="step.content" 
+                  class="prompt-textarea-inline" 
+                  placeholder="输入提示词 Prompt..."
+                  :rows="selectedTemplateId === 'custom' ? 4 : 2"
+                ></textarea>
+                <div class="card-footer-simple d-flex justify-content-between align-items-center">
+                   <div class="form-check form-check-sm mb-0">
+                     <input v-model="step.isThinkingProcess" type="checkbox" class="form-check-input" :id="'th-'+idx">
+                     <label class="form-check-label x-small text-muted" :for="'th-'+idx">思维链</label>
+                   </div>
+                   <div v-if="idx < currentStepIndex || (isFinished && !isRunning)" class="text-success x-small fw-bold">
+                     <i class="bi bi-check-lg"></i> 已完成
+                   </div>
+                </div>
               </div>
             </div>
+            <!-- 连接箭头 -->
+            <div v-if="idx < currentSteps.length - 1" class="step-connector mt-5"><i class="bi bi-arrow-right"></i></div>
+          </template>
+        </div>
+      </div>
 
-            <!-- 运行中 / 有内容 -->
-            <template v-else>
-              <!-- 顶部状态栏 -->
-              <div class="result-statusbar card mb-3">
-                <div class="d-flex align-items-center gap-3 p-3">
-                  <div v-if="isRunning" class="status-running">
-                    <span class="run-dot"></span>
-                    <span>正在生成... 第 {{ currentStepIndex + 1 }} 步</span>
-                  </div>
-                  <div v-else-if="isFinished" class="status-done">
-                    <i class="bi bi-check-circle-fill text-success me-1"></i>
-                    <span>生成完成，共 {{ stepMessages.length }} 个步骤</span>
-                  </div>
-                  <div class="ms-auto d-flex gap-2">
-                    <button
-                      v-if="isFinished"
-                      class="btn btn-sm btn-outline-primary"
-                      @click="scrollToTop"
-                    >
-                      <i class="bi bi-arrow-up"></i>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 步骤卡片列表 -->
-              <div class="steps-result" ref="stepsResultRef">
-                <StepCard
-                  v-for="(msg, idx) in stepMessages"
-                  :key="msg.id"
-                  :message="msg"
-                  :is-current-step="idx === currentStepIndex && isRunning"
-                  :is-running="isRunning"
-                />
-
-                <!-- 运行时底部 loading 占位 -->
-                <div v-if="isRunning" class="step-loading card">
-                  <div class="d-flex align-items-center gap-2 p-3">
-                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                    <span class="text-muted small">AI 正在思考...</span>
-                  </div>
-                </div>
-              </div>
-            </template>
-
-          </div>
+      <!-- 4. 结果查看区 (向下滚动) -->
+      <div class="workflow-results-area border-top bg-black-dark p-4 mt-2">
+        <div class="results-header mb-4 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold"><i class="bi bi-terminal me-2"></i> 生成结果预览</h5>
+            <div class="d-flex gap-2">
+              <button v-if="isFinished && hasContent" @click="exportMarkdown" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-download"></i> 导出 Markdown
+              </button>
+            </div>
+        </div>
+        
+        <!-- 空状态保持 -->
+        <div v-if="!hasContent && !isRunning" class="empty-placeholder py-5 text-center text-muted">
+           <i class="bi bi-robot display-4 mb-3 d-block"></i>
+           <p>请在上方编排工作流，点击「立即执行」观察实时产出</p>
         </div>
 
+        <!-- 结果列表 -->
+        <div class="results-scroller" ref="stepsResultRef">
+           <StepCard
+             v-for="(msg, idx) in stepMessages"
+             :key="msg.id"
+             :message="msg"
+             :is-current-step="idx === currentStepIndex && isRunning"
+             :is-running="isRunning"
+           />
+           <!-- 运行时占位 -->
+           <div v-if="isRunning" class="py-3 px-4 border-dashed rounded text-muted small d-flex align-items-center gap-2">
+              <span class="spinner-grow spinner-grow-sm text-primary"></span> 智能体思考中...
+           </div>
+        </div>
       </div>
     </div>
   </div>
@@ -245,7 +181,32 @@ const selectedTemplateId = ref('report_basic')
 const selectedTemplate = computed(() =>
   templates.value.find(t => t.id === selectedTemplateId.value) || templates.value[0]
 )
-const currentSteps = computed(() => selectedTemplate.value?.steps || [])
+
+// 自定义步骤存储
+const customSteps = ref<any[]>([
+  { id: uuidv4(), type: 'text', title: '自定义步骤 1', content: '请针对 [TOPIC] 进行分析', isThinkingProcess: false }
+])
+
+const currentSteps = computed(() => {
+  if (selectedTemplateId.value === 'custom') {
+    return customSteps.value
+  }
+  return selectedTemplate.value?.steps || []
+})
+
+const addCustomStep = () => {
+  customSteps.value.push({
+    id: uuidv4(),
+    type: 'text',
+    title: `自定义步骤 ${customSteps.value.length + 1}`,
+    content: '',
+    isThinkingProcess: false
+  })
+}
+
+const removeCustomStep = (idx: number) => {
+  customSteps.value.splice(idx, 1)
+}
 
 const selectTemplate = (id: string) => {
   selectedTemplateId.value = id
@@ -330,265 +291,176 @@ watch(
 </script>
 
 <style scoped>
-.workflow-page {
-  padding-top: 32px;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.page-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin: 0 0 6px;
-  background: linear-gradient(135deg, #7aa2ff, #a5b4fc);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.page-subtitle {
-  font-size: 0.95rem;
-  margin: 0;
-}
-
-/* 布局 */
-.workflow-layout {
-  display: grid;
-  grid-template-columns: 360px 1fr;
-  gap: 24px;
-  align-items: start;
-}
-
-@media (max-width: 900px) {
-  .workflow-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* 配置面板 */
-.config-panel {
-  position: sticky;
-  top: 80px;
-}
-
-.config-section {
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.config-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--muted-color);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin-bottom: 14px;
-}
-
-.step-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: rgba(122, 162, 255, 0.2);
-  color: #7aa2ff;
-  font-size: 0.7rem;
-  font-weight: 800;
-}
-
-/* 模板选择 */
-.template-grid {
+.workflow-page-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  height: calc(100vh - 110px);
+  background-color: #050505;
+  color: #ededed;
 }
 
-.template-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  cursor: pointer;
-  transition: all 0.2s;
+/* 面包屑 */
+.workflow-breadcrumb {
+  background-color: var(--bg-color);
+  border-color: var(--border-color) !important;
+}
+.x-small { font-size: 0.7rem; }
+.hover-link:hover { color: var(--primary-color) !important; transition: color 0.2s; }
+
+/* 工具栏 */
+.workflow-toolbar {
+  background-color: #f8fafc;
+  border-color: var(--border-color) !important;
 }
 
-.template-card:hover {
-  border-color: rgba(122, 162, 255, 0.35);
-  background: rgba(122, 162, 255, 0.06);
-}
-
-.template-card.active {
-  border-color: rgba(122, 162, 255, 0.6);
-  background: rgba(122, 162, 255, 0.1);
-}
-
-.tpl-icon { font-size: 1.5rem; line-height: 1; }
-
-.tpl-name { font-size: 0.88rem; font-weight: 600; color: var(--text-color); margin-bottom: 2px; }
-.tpl-desc { font-size: 0.75rem; color: var(--muted-color); line-height: 1.4; }
-
-/* 步骤预览 */
-.steps-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 200px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.step-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
-}
-
-.step-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.dot-text    { background: #7aa2ff; }
-.dot-fixed   { background: #22c55e; }
-.dot-table   { background: #f59e0b; }
-.dot-pic     { background: #a78bfa; }
-
-.step-label { display: flex; align-items: center; gap: 6px; overflow: hidden; }
-
-.step-idx {
-  color: rgba(154, 163, 178, 0.6);
-  flex-shrink: 0;
-  width: 14px;
-}
-
-.step-type-badge {
-  font-size: 0.68rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-.type-text  { background: rgba(122, 162, 255, 0.2); color: #7aa2ff; }
-.type-fixed { background: rgba(34, 197, 94, 0.15);  color: #22c55e; }
-.type-table { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-.type-pic   { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
-
-.step-content-preview {
-  color: var(--muted-color);
+/* 画布主区 */
+.workflow-canvas {
+  flex: 1;
+  min-height: 420px;
+  background-color: #ffffff;
+  background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+  background-size: 32px 32px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 运行按钮 */
-.run-area {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 4px;
-}
-
-.btn-run {
-  width: 100%;
-  padding: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  border-radius: 10px;
-  transition: all 0.25s;
-}
-
-.btn-run:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 30px rgba(76, 125, 255, 0.45);
-}
-
-.btn-export {
-  width: 100%;
-  font-size: 0.85rem;
-}
-
-/* 结果面板 */
-.result-panel {
-  min-height: 400px;
-}
-
-/* 空态 */
-.empty-state {
-  text-align: center;
-  padding: 60px 40px;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 16px;
-  filter: drop-shadow(0 0 20px rgba(122, 162, 255, 0.4));
-}
-
-.feature-list {
-  text-align: left;
-  display: inline-flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 20px;
-  font-size: 0.88rem;
-}
-
-.feature-item { color: var(--muted-color); }
-
-/* 状态栏 */
-.result-statusbar {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.status-running {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #7aa2ff;
-  font-size: 0.9rem;
 }
 
-.run-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #7aa2ff;
-  box-shadow: 0 0 8px #7aa2ff;
-  animation: pulse 1.2s ease-in-out infinite;
+.canvas-scroller {
+  width: 100%;
+  padding: 30px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(0.85); }
-}
-
-.status-done {
-  font-size: 0.9rem;
-  color: #22c55e;
-}
-
-/* 步骤加载占位 */
-.step-loading {
-  border: 1px dashed rgba(122, 162, 255, 0.3);
+/* 步骤卡片 */
+.builder-card {
+  width: 320px;
+  flex-shrink: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
-  margin-bottom: 12px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.builder-card:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.card-running {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+  animation: border-pulse 2s infinite;
+}
+
+@keyframes border-pulse {
+  0%, 100% { border-color: var(--primary-color); }
+  50% { border-color: #818cf8; }
+}
+
+.card-header-simple {
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.type-select-inline {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  color: var(--primary-color);
+  font-size: 0.75rem;
+  border-radius: 4px;
+  padding: 1px 4px;
+  outline: none;
+}
+
+.title-input-inline {
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  font-size: 0.95rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.prompt-textarea-inline {
+  width: 100%;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: none;
+  color: #475569;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+
+.card-footer-simple {
+  padding: 8px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* 连接器 */
+.step-connector {
+  color: #cbd5e1;
+  font-size: 1.2rem;
+  padding: 0 10px;
+}
+
+/* 结果区 */
+.workflow-results-area {
+  height: 50%;
+  overflow-y: auto;
+  border-color: var(--border-color) !important;
+  background-color: #f8fafc;
+}
+
+.bg-black-dark {
+  background-color: #ffffff;
+}
+
+.results-scroller {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* 运行状态动画 */
+.run-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(79, 70, 229, 0.1);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.border-dashed {
+  border: 1px dashed var(--border-color);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 </style>

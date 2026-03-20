@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <nav class="navbar navbar-expand-lg navbar-light">
     <div class="container">
       <router-link class="navbar-brand" to="/dashboard">
         <i class="bi bi-book-half me-2"></i>
