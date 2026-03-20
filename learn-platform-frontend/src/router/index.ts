@@ -17,6 +17,7 @@ const StockMonitor = () => import('@/views/StockMonitor.vue')
 const Recommendation = () => import('@/views/Recommendation.vue')
 const NewsCenter = () => import('@/views/NewsCenter.vue')
 const SentimentAnalysis = () => import('@/views/SentimentAnalysis.vue')
+const WorkflowRun = () => import('@/views/WorkflowRun.vue')
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -69,6 +70,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/graph',
     name: 'KnowledgeGraph',
     component: KnowledgeGraph,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/workflow',
+    name: 'WorkflowRun',
+    component: WorkflowRun,
     meta: { requiresAuth: true }
   },
   {
