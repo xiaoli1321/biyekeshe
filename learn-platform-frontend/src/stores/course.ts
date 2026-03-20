@@ -24,6 +24,7 @@ export const useCourseStore = defineStore('course', () => {
 
   // 获取课程列表
   const fetchCourses = async (params?: CourseSearchParams) => {
+    loading.value = true
     try {
       const response = await courseApi.getCourses(params)
 
@@ -52,6 +53,8 @@ export const useCourseStore = defineStore('course', () => {
         success: false,
         message: error.message || '获取课程列表失败'
       }
+    } finally {
+      loading.value = false
     }
   }
 
@@ -77,6 +80,7 @@ export const useCourseStore = defineStore('course', () => {
 
   // 管理员获取全部课程
   const fetchAllCourses = async () => {
+    loading.value = true
     try {
       const response = await courseApi.getAllCourses()
       if (response.success && response.data) {
@@ -90,6 +94,8 @@ export const useCourseStore = defineStore('course', () => {
         success: false,
         message: error.message || '获取全部课程失败'
       }
+    } finally {
+      loading.value = false
     }
   }
 

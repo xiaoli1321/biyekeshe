@@ -158,7 +158,7 @@ const loadCourses = async () => {
     keyword: searchQuery.value,
     category: selectedCategory.value,
     sortBy: sortBy.value,
-    page: currentPage.value,
+    page: currentPage.value - 1, // 后端是0-indexed
     size: pageSize.value
   })
 }
