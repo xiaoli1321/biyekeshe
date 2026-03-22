@@ -15,12 +15,16 @@
     "axios": "^1.6.8",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.11.3",
+    "dompurify": "^3.3.3",
     "echarts": "^6.0.0",
+    "marked": "^17.0.5",
     "pinia": "^2.1.7",
     "vue": "^3.4.21",
     "vue-router": "^4.3.2"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/marked": "^5.0.2",
     "@types/node": "^20.12.5",
     "@vitejs/plugin-vue": "^5.0.4",
     "eslint": "^8.57.0",
