@@ -53,6 +53,12 @@
               AI 工作流
             </router-link>
           </li>
+          <li class="nav-item">
+            <router-link class="nav-link" to="/kb">
+              <i class="bi bi-database-fill-gear me-1"></i>
+              智能知识库
+            </router-link>
+          </li>
         </ul>
 
         <ul class="navbar-nav">

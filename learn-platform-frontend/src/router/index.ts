@@ -18,6 +18,7 @@ const Recommendation = () => import('@/views/Recommendation.vue')
 const NewsCenter = () => import('@/views/NewsCenter.vue')
 const SentimentAnalysis = () => import('@/views/SentimentAnalysis.vue')
 const WorkflowRun = () => import('@/views/WorkflowRun.vue')
+const KnowledgeBase = () => import('@/views/KnowledgeBase.vue')
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -76,6 +77,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/workflow',
     name: 'WorkflowRun',
     component: WorkflowRun,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/kb',
+    name: 'KnowledgeBase',
+    component: KnowledgeBase,
     meta: { requiresAuth: true }
   },
   {
