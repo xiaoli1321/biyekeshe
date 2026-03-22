@@ -61,6 +61,9 @@ export interface Chapter {
   content: string
   orderIndex: number
   estimatedMinutes: number
+  videoUrl?: string
+  attachmentUrls?: string[]
+  type?: 'TEXT' | 'VIDEO' | 'QUIZ' | 'EXERCISE' | 'PROJECT'
 }
 
 export interface CourseProgress {

@@ -1,4 +1,5 @@
-import type { User, Course, Chapter, ApiResponse } from '@/types'
+import type { User, Course, ApiResponse } from '@/types'
+
 
 // Mock users data
 const MOCK_USERS: User[] = [
@@ -91,7 +92,7 @@ export const mockApi = {
     }
   },
 
-  register: async (data: { username: string; email: string; password: string }): Promise<ApiResponse> => {
+  register: async (_data: { username: string; email: string; password: string }): Promise<ApiResponse> => {
     await new Promise(resolve => setTimeout(resolve, 500))
     return {
       success: true,
@@ -108,7 +109,7 @@ export const mockApi = {
   },
 
   // Courses
-  getCourses: async (params?: any): Promise<ApiResponse> => {
+  getCourses: async (): Promise<ApiResponse> => {
     await new Promise(resolve => setTimeout(resolve, 300))
     return {
       success: true,
@@ -162,7 +163,7 @@ export const mockApi = {
     }
   },
 
-  getLearningPath: async (courseId: string): Promise<ApiResponse> => {
+  getLearningPath: async (): Promise<ApiResponse> => {
     await new Promise(resolve => setTimeout(resolve, 300))
     return {
       success: true,

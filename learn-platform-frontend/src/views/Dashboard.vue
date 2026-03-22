@@ -244,7 +244,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useDashboardStore } from '@/stores/dashboard'
 import Loading from '@/components/Loading.vue'
@@ -253,7 +253,7 @@ const authStore = useAuthStore()
 const dashboardStore = useDashboardStore()
 
 // Mock progress calculation
-const getProgress = (courseId: string): number => {
+const getProgress = (_courseId: string): number => {
   // In real app, this would come from the API
   return Math.floor(Math.random() * 100)
 }

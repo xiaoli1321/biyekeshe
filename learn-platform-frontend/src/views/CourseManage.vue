@@ -1,3 +1,4 @@
+<!-- Managed by Antigravity -->
 <template>
   <div class="container">
     <div class="row mb-4">
@@ -67,6 +68,62 @@
       </div>
     </div>
 
+    <!-- Chapter Management (Only when editing a course) -->
+    <div v-if="editingId" class="card mb-4 border-primary">
+      <div class="card-header bg-primary-subtle d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-primary">
+          <i class="bi bi-layers me-2"></i>
+          章节内容管理
+        </h5>
+        <button class="btn btn-primary btn-sm" @click="openChapterModal()">
+          <i class="bi bi-plus-lg me-1"></i>
+          添加章节
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div v-if="loadingChapters" class="text-center py-4">
+          <div class="spinner-border spinner-border-sm text-primary"></div>
+        </div>
+        <div v-else-if="chapters.length === 0" class="text-center py-4 text-muted small">
+          该课程暂无章节，请点击上方按钮添加。
+        </div>
+        <div v-else class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th width="80">排序</th>
+                <th>标题</th>
+                <th>类型</th>
+                <th>预计时长</th>
+                <th class="text-end">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="chap in chapters" :key="chap.id">
+                <td class="text-center">{{ chap.orderIndex }}</td>
+                <td>
+                  <div class="fw-bold">{{ chap.title }}</div>
+                  <div class="text-muted extra-small">{{ chap.description }}</div>
+                </td>
+                <td>
+                  <span class="badge" :class="chap.type === 'VIDEO' ? 'bg-info' : 'bg-secondary'">
+                    {{ chap.type === 'VIDEO' ? '视频' : '文本' }}
+                  </span>
+                </td>
+                <td>{{ chap.estimatedMinutes }}m</td>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" @click="openChapterModal(chap)">编辑内容</button>
+                    <button class="btn btn-outline-danger" @click="handleDeleteChapter(chap.id)">删除</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
@@ -98,9 +155,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="course in courseStore.courses" :key="course.id">
-                <td>{{ course.name || course.title }}</td>
-                <td>{{ course.difficulty || '初级' }}</td>
+              <tr v-for="course in (courseStore.courses as any[])" :key="course.id">
+                <td>{{ course.title || course.name }}</td>
+                <td>{{ course.difficultyLevel || '初级' }}</td>
                 <td>{{ course.instructor || '-' }}</td>
                 <td>{{ course.estimatedHours || 0 }} 小时</td>
                 <td>
@@ -125,13 +182,63 @@
         </div>
       </div>
     </div>
+
+    <!-- Chapter Modal -->
+    <div v-if="chapterModalOpen" class="modal-overlay">
+      <div class="modal-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">{{ editingChapter?.id ? '编辑章节' : '创建章节' }}</h5>
+          <button type="button" class="btn-close" @click="chapterModalOpen = false"></button>
+        </div>
+        <form @submit.prevent="handleChapterSubmit">
+          <div class="mb-3">
+            <label class="form-label">章节标题</label>
+            <input v-model="chapterForm.title" type="text" class="form-control" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">章节描述</label>
+            <textarea v-model="chapterForm.description" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">章节类型</label>
+            <select v-model="chapterForm.type" class="form-select">
+              <option value="TEXT">文本</option>
+              <option value="VIDEO">视频</option>
+            </select>
+          </div>
+          <div class="mb-3" v-if="chapterForm.type === 'TEXT'">
+            <label class="form-label">章节内容</label>
+            <textarea v-model="chapterForm.content" class="form-control" rows="5"></textarea>
+          </div>
+          <div class="mb-3" v-if="chapterForm.type === 'VIDEO'">
+            <label class="form-label">视频URL</label>
+            <input v-model="chapterForm.videoUrl" type="url" class="form-control" />
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">预计时长（分钟）</label>
+              <input v-model.number="chapterForm.estimatedMinutes" type="number" min="1" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">排序索引</label>
+              <input v-model.number="chapterForm.orderIndex" type="number" min="1" class="form-control" />
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-outline-secondary" @click="chapterModalOpen = false">取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref, onMounted } from 'vue'
 import { useCourseStore } from '@/stores/course'
-import type { Course, CoursePayload } from '@/types'
+import { chapterApi } from '@/services/api/chapter'
+import type { Course, CoursePayload, Chapter } from '@/types'
 
 const courseStore = useCourseStore()
 const loading = ref(false)
@@ -146,6 +253,21 @@ const form = reactive<CoursePayload>({
   estimatedHours: 0,
   tags: '',
   published: false
+})
+
+const chapters = ref<Chapter[]>([])
+const loadingChapters = ref(false)
+const chapterModalOpen = ref(false)
+const editingChapter = ref<Partial<Chapter> | null>(null)
+
+const chapterForm = reactive({
+  title: '',
+  description: '',
+  content: '',
+  type: 'TEXT' as 'TEXT' | 'VIDEO',
+  videoUrl: '',
+  estimatedMinutes: 30,
+  orderIndex: 1
 })
 
 const message = reactive<{ text: string; type: string }>({
@@ -163,6 +285,7 @@ const showMessage = (text: string, type = 'alert-info') => {
 
 const resetForm = () => {
   editingId.value = null
+  chapters.value = []
   form.name = ''
   form.description = ''
   form.instructor = ''
@@ -181,15 +304,86 @@ const loadCourses = async () => {
   loading.value = false
 }
 
-const startEdit = (course: Course) => {
-  editingId.value = course.id
-  form.name = course.name || course.title
-  form.description = course.description || ''
-  form.instructor = course.instructor || ''
-  form.difficultyLevel = course.difficultyLevel || 'BEGINNER'
-  form.estimatedHours = course.estimatedHours || 0
-  form.tags = course.tags || ''
-  form.published = course.published
+const startEdit = async (course: any) => {
+  const c = course as Course
+  editingId.value = c.id
+  form.name = c.title || c.name || ''
+  form.description = c.description || ''
+  form.instructor = c.instructor || ''
+  form.difficultyLevel = (c.difficultyLevel as any) || 'BEGINNER'
+  form.estimatedHours = c.estimatedHours || 0
+  form.tags = c.tags || ''
+  form.published = c.published
+  
+  await loadChapters(c.id)
+}
+
+const loadChapters = async (courseId: string) => {
+  loadingChapters.value = true
+  const result = await courseStore.fetchCourseChapters(courseId)
+  if (result?.success) {
+    chapters.value = result.data || []
+  }
+  loadingChapters.value = false
+}
+
+const openChapterModal = (chapter?: Chapter) => {
+  if (chapter) {
+    const chap = chapter as Chapter
+    editingChapter.value = chap
+    chapterForm.title = chap.title
+    chapterForm.description = chap.description
+    chapterForm.content = chap.content || ''
+    chapterForm.type = chap.type === 'VIDEO' ? 'VIDEO' : 'TEXT'
+    chapterForm.videoUrl = chap.videoUrl || ''
+    chapterForm.estimatedMinutes = chap.estimatedMinutes
+    chapterForm.orderIndex = chap.orderIndex
+  } else {
+    editingChapter.value = null
+    chapterForm.title = ''
+    chapterForm.description = ''
+    chapterForm.content = ''
+    chapterForm.type = 'TEXT'
+    chapterForm.videoUrl = ''
+    chapterForm.estimatedMinutes = 30
+    chapterForm.orderIndex = chapters.value.length + 1
+  }
+  chapterModalOpen.value = true
+}
+
+const handleChapterSubmit = async () => {
+  const cid = editingId.value
+  if (!cid) return
+  
+  const payload = {
+    courseId: cid,
+    ...chapterForm
+  }
+  
+  let result
+  const editChapId = editingChapter.value?.id
+  if (editChapId) {
+    result = await chapterApi.updateChapter(editChapId, payload as any)
+  } else {
+    result = await chapterApi.createChapter(cid as string, payload as any)
+  }
+
+  if (result?.success) {
+    showMessage('章节已保存', 'alert-success')
+    chapterModalOpen.value = false
+    await loadChapters(cid)
+  } else {
+    showMessage(result?.message || '保存章节失败', 'alert-danger')
+  }
+}
+
+const handleDeleteChapter = async (id: string) => {
+  if (!window.confirm('确定删除该章节？')) return
+  const result = await chapterApi.deleteChapter(id)
+  const cid = editingId.value
+  if (result?.success && cid) {
+    await loadChapters(cid)
+  }
 }
 
 const handleSubmit = async () => {
@@ -204,9 +398,13 @@ const handleSubmit = async () => {
     published: form.published
   }
 
-  const result = editingId.value
-    ? await courseStore.updateCourse(editingId.value, payload)
-    : await courseStore.createCourse(payload)
+  let result;
+  const cid = editingId.value;
+  if (cid) {
+    result = await courseStore.updateCourse(cid as string, payload)
+  } else {
+    result = await courseStore.createCourse(payload)
+  }
 
   if (result?.success) {
     showMessage(editingId.value ? '课程已更新' : '课程已创建', 'alert-success')
@@ -218,8 +416,9 @@ const handleSubmit = async () => {
   submitting.value = false
 }
 
-const handleTogglePublish = async (course: Course) => {
-  const result = await courseStore.togglePublish(course.id)
+const handleTogglePublish = async (course: any) => {
+  const c = course as Course
+  const result = await courseStore.togglePublish(c.id)
   if (result?.success) {
     await loadCourses()
   } else {
@@ -244,3 +443,30 @@ onMounted(() => {
   loadCourses()
 })
 </script>
+
+<style scoped>
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1050;
+}
+.modal-container {
+  background: white;
+  padding: 2rem;
+  border-radius: 0.5rem;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.extra-small {
+  font-size: 0.75rem;
+}
+</style>

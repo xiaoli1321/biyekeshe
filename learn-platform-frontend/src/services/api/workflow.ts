@@ -1,7 +1,4 @@
 import http from '@/services/http'
-
-const BASE = ''  // 使用 http 实例的统一 baseURL
-
 // ============== 工作流步骤类型 ==============
 export interface WorkflowStep {
   id: string

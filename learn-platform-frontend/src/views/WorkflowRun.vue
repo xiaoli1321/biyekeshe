@@ -158,7 +158,6 @@ const uuidv4 = () => {
   })
 }
 
-import NavBar from '@/components/NavBar.vue'
 import StepCard from '@/components/workflow/StepCard.vue'
 import { useWorkflowStore } from '@/stores/workflow'
 import { getBuiltinTemplates } from '@/services/api/workflow'
@@ -168,11 +167,9 @@ const workflowStore = useWorkflowStore()
 const {
   isRunning,
   isFinished,
-  errorMsg,
   stepMessages,
   currentStepIndex,
-  hasContent,
-  wordUrl
+  hasContent
 } = storeToRefs(workflowStore)
 
 // ---- 模板选择 ----
@@ -206,19 +203,6 @@ const addCustomStep = () => {
 
 const removeCustomStep = (idx: number) => {
   customSteps.value.splice(idx, 1)
-}
-
-const selectTemplate = (id: string) => {
-  selectedTemplateId.value = id
-}
-
-const tplIcon = (id: string) => {
-  const map: Record<string, string> = {
-    report_basic: '📄',
-    course_design: '🎓',
-    custom: '⚙️'
-  }
-  return map[id] || '📋'
 }
 
 // ---- 表单变量 ----
@@ -270,11 +254,6 @@ const exportMarkdown = () => {
   a.download = `${workflowName.value || '工作流报告'}.md`
   a.click()
   URL.revokeObjectURL(a.href)
-}
-
-// ---- 滚动到顶部 ----
-const scrollToTop = () => {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // ---- 自动滚动到最新内容 ----

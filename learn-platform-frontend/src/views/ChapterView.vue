@@ -60,7 +60,18 @@
       <div class="row">
         <div class="col-lg-8">
           <div class="card">
-            <div class="card-body chapter-content">
+            <div class="card-body">
+              <!-- Video Player -->
+              <div v-if="chapter.type === 'VIDEO' && chapter.videoUrl" class="ratio ratio-16x9 mb-4 shadow-sm rounded overflow-hidden">
+                <video 
+                  controls 
+                  class="w-100 h-100"
+                  :src="chapter.videoUrl"
+                >
+                  您的浏览器不支持视频播放。
+                </video>
+              </div>
+
               <div v-if="chapter.content" v-html="chapter.content"></div>
               <div v-else class="text-muted">暂无章节内容</div>
             </div>
@@ -126,37 +137,39 @@
             </div>
           </div>
 
-          <!-- Resources -->
-          <div class="card">
-            <div class="card-header bg-white">
+          <!-- Prerequisite Knowledge -->
+          <div v-if="prerequisites.length > 0" class="card mt-4">
+            <div class="card-header bg-warning-subtle">
               <h5 class="mb-0">
-                <i class="bi bi-paperclip me-2"></i>
-                相关资源
+                <i class="bi bi-lightbulb me-2 text-warning"></i>
+                学习前置建议
               </h5>
             </div>
             <div class="card-body">
-              <div v-if="resources.length > 0">
-                <ul class="list-group list-group-flush">
-                  <li
-                    v-for="(resource, index) in resources"
-                    :key="index"
-                    class="list-group-item px-0"
-                  >
-                    <a :href="resource.url" target="_blank" class="text-decoration-none">
-                      <i class="bi bi-link-45deg me-2"></i>
-                      {{ resource.name }}
-                    </a>
-                  </li>
-                </ul>
-              </div>
-              <div v-else>
-                <p class="text-muted small">暂无资源</p>
+              <p class="small text-muted mb-3">为更好地理解本章，建议您先复习以下知识点：</p>
+              <div class="list-group list-group-flush">
+                <div
+                  v-for="pre in prerequisites"
+                  :key="pre.id"
+                  class="list-group-item px-0 py-2 border-0"
+                >
+                  <div class="d-flex align-items-start">
+                    <i class="bi bi-arrow-right-short mt-1 me-1 text-primary"></i>
+                    <div>
+                      <div class="fw-bold small">{{ pre.label }}</div>
+                      <div class="text-muted extra-small">{{ pre.description }}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- AI Study Buddy -->
+    <AiSidekick v-if="chapter" :chapterId="chapter.id" />
   </div>
 </template>
 
@@ -164,8 +177,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useCourseStore } from '@/stores/course'
+import { chapterApi } from '@/services/api/chapter'
 import Loading from '@/components/Loading.vue'
-import type { Chapter } from '@/types'
+import AiSidekick from '@/components/AiSidekick.vue'
+import type { Chapter, ConceptNode } from '@/types'
 
 const route = useRoute()
 const courseStore = useCourseStore()
@@ -178,8 +193,8 @@ const progress = ref(0)
 const chapter = computed(() => courseStore.currentChapter)
 const chapters = ref<(Chapter & { completed?: boolean })[]>([])
 const courseTitle = computed(() => courseStore.currentCourse?.title || courseStore.currentCourse?.name || '课程')
-const resources = ref<{ name: string; url: string }[]>([])
 const completedChapterIds = ref<string[]>([])
+const prerequisites = ref<ConceptNode[]>([])
 
 const markAsCompleted = async () => {
   if (!chapter.value) {
@@ -241,6 +256,12 @@ onMounted(async () => {
         ? 100
         : Math.min(100, Math.round((studyMinutes / estimatedMinutes) * 100))
     }
+
+    // 获取前置知识点
+    const preResult = await chapterApi.getPrerequisites(chapterId)
+    if (preResult?.success && preResult.data) {
+      prerequisites.value = preResult.data
+    }
   } else {
     chapters.value = []
   }
@@ -275,5 +296,9 @@ onMounted(async () => {
   background: none;
   padding: 0;
   margin: 0;
+}
+
+.extra-small {
+  font-size: 0.75rem;
 }
 </style>

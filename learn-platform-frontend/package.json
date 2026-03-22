@@ -12,21 +12,22 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
-    "vue": "^3.4.21",
-    "vue-router": "^4.3.2",
-    "pinia": "^2.1.7",
     "axios": "^1.6.8",
     "bootstrap": "^5.3.3",
-    "bootstrap-icons": "^1.11.3"
+    "bootstrap-icons": "^1.11.3",
+    "echarts": "^6.0.0",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.2"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.0.4",
-    "vite": "^5.2.8",
-    "typescript": "^5.4.3",
-    "vue-tsc": "^2.0.11",
     "@types/node": "^20.12.5",
+    "@vitejs/plugin-vue": "^5.0.4",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.23.0",
-    "prettier": "^3.2.5"
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.3",
+    "vite": "^5.2.8",
+    "vue-tsc": "^2.0.11"
   }
 }

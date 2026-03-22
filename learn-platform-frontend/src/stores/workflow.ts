@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { parseStreamBuffer } from '@/utils/streamParser'
 import { startWorkflowStream, abortWorkflow } from '@/services/api/workflow'
-import type { WorkflowRunRequest, WorkflowStep } from '@/services/api/workflow'
+import type { WorkflowRunRequest } from '@/services/api/workflow'
 
 // ============== 类型定义 ==============
 
