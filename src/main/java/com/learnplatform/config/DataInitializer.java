@@ -26,23 +26,24 @@ public class DataInitializer {
                               ProgressRepository progressRepository,
                               PasswordEncoder passwordEncoder) {
         return args -> {
-            // 开发环境 - 清除旧数据并重新创建用户
-            userRepository.deleteAll();
+            // 开发环境 - 只在用户不存在时创建，避免 ID 变化导致关联数据失效
+            if (userRepository.count() == 0) {
+                // 创建管理员用户 - 使用PasswordEncoder加密密码admin123
+                User admin = new User("admin", "admin@learning.com",
+                        passwordEncoder.encode("admin123"), User.UserRole.ADMIN);
+                admin.setEnabled(true);
+                userRepository.save(admin);
+                System.out.println("✓ 管理员用户已重新初始化: admin@learning.com / admin123");
 
-
-            // 创建管理员用户 - 使用PasswordEncoder加密密码admin123
-            User admin = new User("admin", "admin@learning.com",
-                    passwordEncoder.encode("admin123"), User.UserRole.ADMIN);
-            admin.setEnabled(true);
-            userRepository.save(admin);
-            System.out.println("✓ 管理员用户已创建: admin@learning.com / admin123");
-
-            // 创建普通用户 - 使用PasswordEncoder加密密码password
-            User user = new User("user", "user@learning.com",
-                    passwordEncoder.encode("password"), User.UserRole.USER);
-            user.setEnabled(true);
-            userRepository.save(user);
-            System.out.println("✓ 普通用户已创建: user@learning.com / password");
+                // 创建普通用户 - 使用PasswordEncoder加密密码password
+                User user = new User("user", "user@learning.com",
+                        passwordEncoder.encode("password"), User.UserRole.USER);
+                user.setEnabled(true);
+                userRepository.save(user);
+                System.out.println("✓ 普通用户已重新初始化: user@learning.com / password");
+            } else {
+                System.out.println("✓ 用户数据已存在，跳过初始化 (保持 ID 稳定)");
+            }
 
             // 创建示例课程
             if (courseRepository.count() == 0) {
