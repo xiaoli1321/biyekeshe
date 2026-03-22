@@ -12,10 +12,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.core.ParameterizedTypeReference;
 import reactor.core.publisher.Flux;
+import com.learnplatform.entity.LlmProvider;
+import com.learnplatform.repository.LlmProviderRepository;
 
 import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -34,17 +37,59 @@ public class LlmStreamingService {
     @Autowired
     private ObjectMapper objectMapper;
 
-    /** WebClient 实例（惰性初始化，根据 baseUrl 创建） */
-    private WebClient webClient;
+    @Autowired
+    private LlmProviderRepository providerRepository;
 
-    private WebClient getWebClient() {
-        if (webClient == null) {
-            webClient = WebClient.builder()
-                    .baseUrl(llmConfig.getDeepseek().getBaseUrl())
+    /** WebClient 动态缓存连池（以 BaseUrl 隔离） */
+    private final ConcurrentHashMap<String, WebClient> webClientMap = new ConcurrentHashMap<>();
+
+    private WebClient getWebClient(String baseUrl) {
+        String url = baseUrl == null || baseUrl.isBlank() ? llmConfig.getDeepseek().getBaseUrl() : baseUrl;
+        return webClientMap.computeIfAbsent(url, (k) -> 
+            WebClient.builder()
+                    .baseUrl(k)
                     .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
-                    .build();
+                    .build()
+        );
+    }
+    
+    private static class ProviderConfig {
+        String alias;
+        String apiKey;
+        String baseUrl;
+        public ProviderConfig(String a, String k, String b) { this.alias = a; this.apiKey = k; this.baseUrl = b; }
+    }
+
+    private ProviderConfig resolveProvider(String modelId) {
+        if (modelId == null) {
+            return new ProviderConfig(llmConfig.getDeepseek().getModel(), llmConfig.getDeepseek().getApiKey(), llmConfig.getDeepseek().getBaseUrl());
         }
-        return webClient;
+        
+        if (modelId.startsWith("default-")) {
+            String alias = switch (modelId) {
+                case "default-v3" -> "deepseek-chat";
+                case "default-r1" -> "deepseek-reasoner";
+                case "default-glm4" -> "glm-4";
+                default -> llmConfig.getDeepseek().getModel();
+            };
+            return new ProviderConfig(alias, llmConfig.getDeepseek().getApiKey(), llmConfig.getDeepseek().getBaseUrl());
+        } 
+        
+        // 查询数据库看是否存在该自定义模型
+        Optional<LlmProvider> opt = providerRepository.findById(modelId);
+        if (opt.isPresent()) {
+            LlmProvider custom = opt.get();
+            return new ProviderConfig(custom.getModelAlias(), custom.getApiKey(), custom.getBaseUrl());
+        }
+
+        // 容灾模式：可能是遗留系统的直接指令字符 e.g. "deepseek_v3"
+        String fallbackAlias = switch (modelId.toLowerCase()) {
+            case "deepseek_v3", "deepseek-v3", "deepseek-chat" -> "deepseek-chat";
+            case "deepseek_r1", "deepseek-r1", "deepseek-reasoner" -> "deepseek-reasoner";
+            case "glm4", "glm-4" -> "glm-4";
+            default -> llmConfig.getDeepseek().getModel();
+        };
+        return new ProviderConfig(fallbackAlias, llmConfig.getDeepseek().getApiKey(), llmConfig.getDeepseek().getBaseUrl());
     }
 
     /**
@@ -61,18 +106,21 @@ public class LlmStreamingService {
      */
     public String streamingWrapper(
             String prompt,
-            String model,
+            String modelId,
             List<HistoryMessage> history,
             String systemPrompt,
             PrintWriter writer,
             AtomicBoolean abortFlag
     ) {
+        // 全新路由机制获取该模型的特权配置
+        ProviderConfig providerConfig = resolveProvider(modelId);
+
         // 组装消息列表
         List<Map<String, String>> messages = buildMessages(history, systemPrompt, prompt);
 
         // 构造请求体
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", resolveModelName(model));
+        requestBody.put("model", providerConfig.alias);
         requestBody.put("messages", messages);
         requestBody.put("max_tokens", llmConfig.getDeepseek().getMaxTokens());
         requestBody.put("temperature", llmConfig.getDeepseek().getTemperature());
@@ -81,10 +129,10 @@ public class LlmStreamingService {
         StringBuilder fullResponse = new StringBuilder();
 
         try {
-            String apiKey = llmConfig.getDeepseek().getApiKey();
+            String apiKey = providerConfig.apiKey;
             if (apiKey == null || apiKey.isBlank()) {
                 // API key 未配置时输出提示（方便开发调试）
-                String mock = "[LLM未配置API Key，这是模拟响应] 模型: " + model + "，Prompt: " + prompt.substring(0, Math.min(50, prompt.length())) + "...";
+                String mock = "[LLM未配置 API Key 或请求受限] Proxy Model: " + modelId + " -> " + providerConfig.alias;
                 writer.write(mock);
                 writer.flush();
                 return mock;
@@ -94,7 +142,7 @@ public class LlmStreamingService {
             ParameterizedTypeReference<ServerSentEvent<String>> type =
                     new ParameterizedTypeReference<>() {};
 
-            Flux<ServerSentEvent<String>> eventStream = getWebClient().post()
+            Flux<ServerSentEvent<String>> eventStream = getWebClient(providerConfig.baseUrl).post()
                     .uri("/chat/completions")
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
@@ -133,8 +181,8 @@ public class LlmStreamingService {
             });
 
         } catch (Exception e) {
-            log.error("LLM streaming error for model {}: {}", model, e.getMessage());
-            String errorMsg = "\n[LLM调用错误: " + e.getMessage() + "]\n";
+            log.error("LLM streaming error for modelId {}: {}", modelId, e.getMessage());
+            String errorMsg = "\n[LLM调用网关错误: " + e.getMessage() + "]\n";
             writer.write(errorMsg);
             writer.flush();
             return errorMsg;
@@ -173,21 +221,7 @@ public class LlmStreamingService {
         return messages;
     }
 
-    /**
-     * 将前端传入的 model 名映射到实际 API 模型名
-     * 等价于原 JS streaming_api_wrapper 的 model routing
-     */
-    private String resolveModelName(String modelAlias) {
-        if (modelAlias == null) {
-            return llmConfig.getDeepseek().getModel();
-        }
-        return switch (modelAlias.toLowerCase()) {
-            case "deepseek_v3", "deepseek-v3", "deepseek-chat" -> "deepseek-chat";
-            case "deepseek_r1", "deepseek-r1", "deepseek-reasoner" -> "deepseek-reasoner";
-            case "glm4", "glm-4" -> "glm-4"; // 后续可扩展为调 GLM API
-            default -> llmConfig.getDeepseek().getModel(); // fallback 到配置的默认模型
-        };
-    }
+
 
     /**
      * 以 SSE 格式发送 token
