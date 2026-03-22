@@ -12,12 +12,16 @@ public class ChapterDto {
     private String content;
     private int orderIndex;
     private int estimatedMinutes;
+    private String videoUrl;
+    private List<String> attachmentUrls;
+    private String type;
 
     public ChapterDto() {
     }
 
     public ChapterDto(String id, String courseId, String title, String description,
-                      String content, int orderIndex, int estimatedMinutes) {
+                      String content, int orderIndex, int estimatedMinutes,
+                      String videoUrl, List<String> attachmentUrls, String type) {
         this.id = id;
         this.courseId = courseId;
         this.title = title;
@@ -25,6 +29,9 @@ public class ChapterDto {
         this.content = content;
         this.orderIndex = orderIndex;
         this.estimatedMinutes = estimatedMinutes;
+        this.videoUrl = videoUrl;
+        this.attachmentUrls = attachmentUrls;
+        this.type = type;
     }
 
     // 从Chapter实体转换
@@ -40,7 +47,10 @@ public class ChapterDto {
                 chapter.getDescription(),
                 chapter.getContent(),
                 chapter.getOrderIndex(),
-                chapter.getEstimatedMinutes()
+                chapter.getEstimatedMinutes(),
+                chapter.getVideoUrl(),
+                chapter.getAttachmentUrls(),
+                chapter.getType() != null ? chapter.getType().name() : "TEXT"
         );
     }
 
@@ -99,5 +109,29 @@ public class ChapterDto {
 
     public void setEstimatedMinutes(int estimatedMinutes) {
         this.estimatedMinutes = estimatedMinutes;
+    }
+
+    public String getVideoUrl() {
+        return videoUrl;
+    }
+
+    public void setVideoUrl(String videoUrl) {
+        this.videoUrl = videoUrl;
+    }
+
+    public List<String> getAttachmentUrls() {
+        return attachmentUrls;
+    }
+
+    public void setAttachmentUrls(List<String> attachmentUrls) {
+        this.attachmentUrls = attachmentUrls;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }

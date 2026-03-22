@@ -3,11 +3,13 @@ package com.learnplatform.controller.api;
 import com.learnplatform.dto.ApiResponse;
 import com.learnplatform.dto.response.ChapterDto;
 import com.learnplatform.dto.response.ChapterProgressDto;
+import com.learnplatform.dto.response.ConceptGraphDto;
 import com.learnplatform.entity.Chapter;
+import com.learnplatform.entity.Concept;
 import com.learnplatform.security.UserPrincipal;
 import com.learnplatform.service.ChapterService;
+import com.learnplatform.service.GraphService;
 import com.learnplatform.service.ProgressService;
-import com.learnplatform.util.DtoConverter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,8 +18,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Tag(name = "章节管理", description = "章节相关的API接口")
 @RestController
@@ -30,6 +34,9 @@ public class ChapterApiController {
 
     @Autowired
     private ProgressService progressService;
+
+    @Autowired
+    private GraphService graphService;
 
     @Operation(summary = "获取章节详情", description = "根据章节ID获取章节详细信息")
     @GetMapping("/{id}")
@@ -145,6 +152,29 @@ public class ChapterApiController {
         }
     }
 
+    @Operation(summary = "更新学习笔记", description = "保存用户对应的章节随堂笔记")
+    @PutMapping("/{chapterId}/notes")
+    public ApiResponse<Void> updateChapterNotes(
+            @Parameter(description = "章节ID", required = true)
+            @PathVariable String chapterId,
+
+            @Parameter(description = "笔记内容", required = true)
+            @RequestBody String notes,
+            Authentication authentication
+    ) {
+        try {
+            String userId = getCurrentUserId(authentication);
+            if (userId == null) {
+                return ApiResponse.error("用户未登录", "NOT_AUTHENTICATED");
+            }
+
+            progressService.updateNotes(userId, chapterId, notes);
+            return ApiResponse.success(null, "笔记已保存");
+        } catch (Exception e) {
+            return ApiResponse.error("保存笔记失败: " + e.getMessage());
+        }
+    }
+
     @Operation(summary = "获取章节进度", description = "获取当前用户的章节学习进度")
     @GetMapping("/{chapterId}/progress")
     public ApiResponse<ChapterProgressDto> getChapterProgress(
@@ -165,17 +195,43 @@ public class ChapterApiController {
         }
     }
 
-    @Operation(summary = "获取章节概念", description = "获取章节中的知识点概念")
-    @GetMapping("/{id}/concepts")
-    public ApiResponse<List<String>> getChapterConcepts(
+    @Operation(summary = "获取章节前置知识点", description = "获取学习本章节前建议先复习的概念知识点")
+    @GetMapping("/{id}/prerequisites")
+    public ApiResponse<List<ConceptGraphDto.ConceptNodeDto>> getChapterPrerequisites(
             @Parameter(description = "章节ID", required = true)
             @PathVariable String id
     ) {
         try {
-            List<String> concepts = chapterService.getChapterConcepts(id);
-            return ApiResponse.success(concepts, "获取概念列表成功");
+            Optional<Chapter> chapterOpt = chapterService.findChapterById(id);
+            if (chapterOpt.isEmpty()) {
+                return ApiResponse.error("章节未找到", "CHAPTER_NOT_FOUND");
+            }
+
+            Chapter chapter = chapterOpt.get();
+            List<Concept> chapterConcepts = chapter.getConcepts();
+            
+            // 收集所有关联概念的前置知识点
+            List<Concept> allPrerequisites = new ArrayList<>();
+            for (Concept concept : chapterConcepts) {
+                List<Concept> prerequisites = graphService.getDirectPrerequisites(concept.getId());
+                allPrerequisites.addAll(prerequisites);
+            }
+
+            // 去重并转换为 DTO
+            List<ConceptGraphDto.ConceptNodeDto> dtos = allPrerequisites.stream()
+                    .distinct()
+                    .map(c -> new ConceptGraphDto.ConceptNodeDto(
+                            c.getId(),
+                            c.getName(),
+                            c.getDescription(),
+                            "核心概念", // 默认分类
+                            c.getDifficultyLevel() != null ? c.getDifficultyLevel() : 1
+                    ))
+                    .collect(Collectors.toList());
+
+            return ApiResponse.success(dtos, "获取前置知识点成功");
         } catch (Exception e) {
-            return ApiResponse.error("获取概念失败: " + e.getMessage());
+            return ApiResponse.error("获取前置知识点失败: " + e.getMessage());
         }
     }
 

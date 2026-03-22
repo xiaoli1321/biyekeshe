@@ -43,6 +43,12 @@ public class Chapter {
     // 预估完成时间（分钟）
     private Integer estimatedMinutes;
 
+    // 视频地址
+    private String videoUrl;
+
+    // 附件列表（资源）
+    private List<String> attachmentUrls = new ArrayList<>();
+
     // 是否可跳过
     private boolean skippable = false;
 
@@ -133,6 +139,22 @@ public class Chapter {
 
     public void setEstimatedMinutes(Integer estimatedMinutes) {
         this.estimatedMinutes = estimatedMinutes;
+    }
+
+    public String getVideoUrl() {
+        return videoUrl;
+    }
+
+    public void setVideoUrl(String videoUrl) {
+        this.videoUrl = videoUrl;
+    }
+
+    public List<String> getAttachmentUrls() {
+        return attachmentUrls;
+    }
+
+    public void setAttachmentUrls(List<String> attachmentUrls) {
+        this.attachmentUrls = attachmentUrls;
     }
 
     public boolean isSkippable() {
