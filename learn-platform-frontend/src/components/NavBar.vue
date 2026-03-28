@@ -1,6 +1,6 @@
 <template>
   <nav class="navbar navbar-expand-lg navbar-light">
-    <div class="container">
+    <div class="container-fluid px-4">
       <router-link class="navbar-brand" to="/dashboard">
         <i class="bi bi-book-half me-2"></i>
         学习平台
@@ -17,6 +17,18 @@
 
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <router-link class="nav-link" to="/explore">
+              <i class="bi bi-compass me-1"></i>
+              探索
+            </router-link>
+          </li>
+          <li class="nav-item">
+            <router-link class="nav-link" to="/studio">
+              <i class="bi bi-pencil-square me-1"></i>
+              工作室
+            </router-link>
+          </li>
           <li class="nav-item">
             <router-link class="nav-link" to="/dashboard">
               <i class="bi bi-speedometer2 me-1"></i>
