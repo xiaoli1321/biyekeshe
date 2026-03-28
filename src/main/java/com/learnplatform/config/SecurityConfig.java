@@ -64,7 +64,8 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/**",    // 认证相关API
                     "/api/public/**",  // 其他公开API
-                    "/api/llm/**",     // LLM 工作流 API (已放宽以防测试 Token 失效及配合 SSE)
+                    "/api/llm/**",     // LLM 工作流 API
+                    "/api/agents/*/chat-stream", // 允许 SSE 流式对话公开访问 (兼容 EventSource)
                     "/v3/api-docs/**", // Swagger文档
                     "/swagger-ui/**",  // Swagger UI
                     "/error"           // 错误页面

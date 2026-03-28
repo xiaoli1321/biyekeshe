@@ -19,11 +19,39 @@ const NewsCenter = () => import('@/views/NewsCenter.vue')
 const SentimentAnalysis = () => import('@/views/SentimentAnalysis.vue')
 const WorkflowRun = () => import('@/views/WorkflowRun.vue')
 const KnowledgeBase = () => import('@/views/KnowledgeBase.vue')
+const AgentExplore = () => import('@/views/AgentExplore.vue')
+const AgentChat = () => import('@/views/AgentChat.vue')
+const Studio = () => import('@/views/Studio.vue')
+const AgentEdit = () => import('@/views/AgentEdit.vue')
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect: '/dashboard'
+    redirect: '/explore'
+  },
+  {
+    path: '/studio',
+    name: 'Studio',
+    component: Studio,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/studio/:agentId',
+    name: 'AgentEdit',
+    component: AgentEdit,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/explore',
+    name: 'AgentExplore',
+    component: AgentExplore,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/chat/:agentId',
+    name: 'AgentChat',
+    component: AgentChat,
+    meta: { requiresAuth: true }
   },
   {
     path: '/login',

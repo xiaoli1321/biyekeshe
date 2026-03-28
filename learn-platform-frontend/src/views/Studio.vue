@@ -22,7 +22,7 @@
       <div class="spinner-border text-primary" role="status"></div>
     </div>
 
-    <div v-else-if="filteredAgents.length === 0" class="empty-state text-center py-5">
+    <div v-else-if="!loading && filteredAgents.length === 0" class="empty-state text-center py-5">
       <div class="empty-icon-box mb-3">
          <i class="bi bi-robot"></i>
       </div>
@@ -32,7 +32,7 @@
 
     <div v-else class="row g-4 px-2">
       <div v-for="agent in filteredAgents" :key="agent.id" class="col-md-6 col-lg-4">
-        <div class="agent-sleek-card h-100 shadow-sm border">
+        <div class="agent-sleek-card h-100 shadow-sm border clickable-card" @click="goToChat(agent.id)">
           <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-start mb-3">
               <div class="d-flex align-items-center gap-3">
@@ -53,27 +53,20 @@
                   </div>
                 </div>
               </div>
-              <div class="dropdown">
-                <button class="btn btn-link text-muted p-0 border-0" type="button" data-bs-toggle="dropdown">
+              <div class="dropdown-container" @click.stop>
+                <button class="btn-action-trigger" @click="toggleDropdown(agent.id)">
                   <i class="bi bi-three-dots"></i>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2 custom-dropdown">
-                  <li class="dropdown-header fw-bold text-dark px-3 mb-1" style="font-size: 1rem;">操作</li>
-                  <li><a class="dropdown-item py-2 d-flex align-items-center" href="#" @click.prevent="editAgent(agent.id)">
-                    <i class="bi bi-pencil-square me-3 fs-5"></i>编辑
-                  </a></li>
-                  <li><a class="dropdown-item py-2 d-flex align-items-center opacity-75" href="#">
-                    <i class="bi bi-robot me-3 fs-5"></i>嵌入组件
-                  </a></li>
-                  <li><a class="dropdown-item py-2 d-flex align-items-center" href="#" @click.prevent="toggleAgentStatus(agent)">
-                    <i class="bi me-3 fs-5" :class="agent.enabled ? 'bi-eye-slash' : 'bi-eye'"></i>
-                    <span>{{ agent.enabled ? '禁用' : '启用' }}</span>
-                  </a></li>
-                  <li><hr class="dropdown-divider mx-2 my-2"></li>
-                  <li><a class="dropdown-item py-2 text-danger d-flex align-items-center fw-bold" href="#" @click.prevent="confirmDelete(agent)">
-                    <i class="bi bi-trash3 me-3 fs-5"></i>删除
-                  </a></li>
-                </ul>
+                <div v-if="activeDropdownId === agent.id" class="custom-dropdown-menu shadow-lg border animate-fade-in">
+                  <div class="dropdown-header-sm px-3 py-1 text-muted x-small fw-bold border-bottom">操作</div>
+                  <button class="dropdown-item-custom mt-1" @click="editAgent(agent.id)">
+                    <i class="bi bi-pencil-square me-2"></i>编辑
+                  </button>
+                  <hr class="mx-2 my-1 opacity-10">
+                  <button class="dropdown-item-custom text-danger mb-1" @click="confirmDelete(agent)">
+                    <i class="bi bi-trash3 me-2"></i>删除
+                  </button>
+                </div>
               </div>
             </div>
             <p class="card-text text-secondary small line-clamp-2 mt-2 mb-0">
@@ -101,16 +94,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { agentApi, Agent } from '@/services/api/agent'
+import { useAgentStore } from '@/stores/agent'
 
 const router = useRouter()
-const agents = ref<Agent[]>([])
-const loading = ref(true)
+const agentStore = useAgentStore()
 const searchQuery = ref('')
+const activeDropdownId = ref<string | null>(null)
 const showDeleteModal = ref(false)
 const agentToDelete = ref<Agent | null>(null)
+
+const agents = computed(() => agentStore.myAgents)
+const loading = computed(() => agentStore.loading)
 
 const filteredAgents = computed(() => {
   if (!agents.value) return []
@@ -122,26 +119,18 @@ const filteredAgents = computed(() => {
   )
 })
 
+const toggleDropdown = (id: string) => {
+  activeDropdownId.value = activeDropdownId.value === id ? null : id
+}
+
+const closeDropdown = () => {
+  activeDropdownId.value = null
+}
+
 const formatDateShort = (date: string) => {
   if (!date) return '未知'
   const d = new Date(date)
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
-}
-
-const fetchAgents = async () => {
-  try {
-    console.log('Fetching agents...')
-    loading.value = true
-    const response = await agentApi.getMyAgents()
-    console.log('Agents received:', response)
-    agents.value = response || []
-  } catch (error) {
-    console.error('Failed to fetch agents', error)
-    agents.value = []
-  } finally {
-    loading.value = false
-    console.log('Loading finished. Agents count:', agents.value.length)
-  }
 }
 
 const toggleAgentStatus = async (agent: Agent) => {
@@ -156,6 +145,7 @@ const toggleAgentStatus = async (agent: Agent) => {
 
 const createNewAgent = () => router.push('/studio/new')
 const editAgent = (id: string) => router.push(`/studio/${id}`)
+const goToChat = (id: string) => router.push(`/chat/${id}`)
 
 const confirmDelete = (agent: Agent) => {
   agentToDelete.value = agent
@@ -166,14 +156,21 @@ const handleDelete = async () => {
   if (!agentToDelete.value) return
   try {
     await agentApi.deleteAgent(agentToDelete.value.id)
-    agents.value = agents.value.filter(a => a.id !== agentToDelete.value!.id)
+    await agentStore.fetchMyAgents() // Refresh store
     showDeleteModal.value = false
   } catch (error) {
     console.error('Delete failed', error)
   }
 }
 
-onMounted(fetchAgents)
+onMounted(() => {
+  agentStore.fetchMyAgents()
+  window.addEventListener('click', closeDropdown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeDropdown)
+})
 </script>
 
 <style scoped>
@@ -222,6 +219,10 @@ onMounted(fetchAgents)
   transform: translateY(-3px);
   border-color: #0d6efd99 !important;
   box-shadow: 0 8px 25px rgba(0,0,0,0.06) !important;
+}
+
+.clickable-card {
+  cursor: pointer;
 }
 
 .agent-square-icon {
@@ -327,5 +328,66 @@ onMounted(fetchAgents)
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
+}
+.dropdown-container {
+  position: relative;
+}
+
+.btn-action-trigger {
+  background: transparent;
+  border: none;
+  color: #adb5bd;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-action-trigger:hover {
+  background: #f1f3f5;
+  color: #495057;
+}
+
+.custom-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  min-width: 160px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dropdown-item-custom {
+  width: 100%;
+  text-align: left;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  font-size: 0.875rem;
+  color: #495057;
+  display: flex;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.dropdown-item-custom:hover {
+  background: #f8f9fa;
+}
+
+.dropdown-item-custom.text-danger:hover {
+  background: #fff5f5;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

@@ -7,4 +7,5 @@ import java.util.List;
 public interface ConversationRepository extends MongoRepository<Conversation, String> {
     List<Conversation> findByUserId(String userId);
     List<Conversation> findByUserIdOrderByLastMessageAtDesc(String userId);
+    List<Conversation> findByAgentIdAndUserIdOrderByLastMessageAtDesc(String agentId, String userId);
 }

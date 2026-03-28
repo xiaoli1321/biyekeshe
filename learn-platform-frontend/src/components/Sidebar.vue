@@ -57,29 +57,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { agentApi, Agent } from '@/services/api/agent'
+import { useAgentStore } from '@/stores/agent'
 
 const authStore = useAuthStore()
+const agentStore = useAgentStore()
 const workspaceOpen = ref(true)
-const favoriteAgents = ref<Agent[]>([])
+
+// Take top 5 agents as workspace favorites
+const favoriteAgents = computed(() => agentStore.myAgents.slice(0, 5))
 
 const toggleWorkspace = () => {
   workspaceOpen.value = !workspaceOpen.value
 }
 
-const fetchMyAgents = async () => {
-  try {
-    const response = await agentApi.getMyAgents()
-    // Take first 3 as "pinned" or favorites for the sidebar preview
-    favoriteAgents.value = response.slice(0, 3)
-  } catch (err) {
-    console.error('Failed to fetch sidebar agents', err)
-  }
-}
-
-onMounted(fetchMyAgents)
+onMounted(() => {
+  agentStore.fetchMyAgents()
+})
 </script>
 
 <style scoped>

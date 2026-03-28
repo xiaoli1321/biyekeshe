@@ -18,6 +18,7 @@ public class Agent {
     private String welcomeMessage; // 新增：欢迎语
     private boolean enabled = true; // 新增：启用状态
     private String modelId; // 关联 LlmProvider
+    private String kbCollectionId; // 关联知识库 (RAG)
     private String userId;
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime lastModifiedAt = LocalDateTime.now(); // 新增：修改时间
@@ -48,6 +49,8 @@ public class Agent {
     public void setWelcomeMessage(String welcomeMessage) { this.welcomeMessage = welcomeMessage; }
     public String getModelId() { return modelId; }
     public void setModelId(String modelId) { this.modelId = modelId; }
+    public String getKbCollectionId() { return kbCollectionId; }
+    public void setKbCollectionId(String kbCollectionId) { this.kbCollectionId = kbCollectionId; }
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
     public boolean isEnabled() { return enabled; }

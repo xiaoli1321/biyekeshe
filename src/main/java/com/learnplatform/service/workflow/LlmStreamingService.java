@@ -224,6 +224,67 @@ public class LlmStreamingService {
 
 
     /**
+     * 以 Flux<String> 形式返回流，适用于 Spring Boot 响应流
+     * 对应原 JS streaming_api_wrapper.js
+     */
+    public Flux<String> getGeneralFlux(String prompt, String modelId, List<Map<String, String>> history, String systemPrompt) {
+        // 1. 路由解析
+        ProviderConfig providerConfig = resolveProvider(modelId);
+
+        // 2. 组装消息列表
+        List<Map<String, String>> messages = new ArrayList<>();
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            messages.add(Map.of("role", "system", "content", systemPrompt));
+        } else {
+            messages.add(Map.of("role", "system", "content", "你是一个专业的内容生成助手。请使用 Markdown 格式。"));
+        }
+        if (history != null) {
+            messages.addAll(history);
+        }
+        messages.add(Map.of("role", "user", "content", prompt));
+
+        // 3. 构造请求体
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", providerConfig.alias);
+        requestBody.put("messages", messages);
+        requestBody.put("max_tokens", llmConfig.getDeepseek().getMaxTokens());
+        requestBody.put("temperature", llmConfig.getDeepseek().getTemperature());
+        requestBody.put("stream", true);
+
+        // 4. 发起请求
+        ParameterizedTypeReference<ServerSentEvent<String>> type = new ParameterizedTypeReference<>() {};
+        
+        return getWebClient(providerConfig.baseUrl).post()
+                .uri("/chat/completions")
+                .header("Authorization", "Bearer " + providerConfig.apiKey)
+                .header("Content-Type", "application/json")
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToFlux(type)
+                .timeout(Duration.ofSeconds(llmConfig.getDeepseek().getTimeoutSeconds()))
+                .mapNotNull(event -> {
+                    String data = event.data();
+                    if (data == null || data.isBlank() || "[DONE]".equals(data)) {
+                        return null;
+                    }
+                    try {
+                        JsonNode node = objectMapper.readTree(data);
+                        JsonNode choices = node.get("choices");
+                        if (choices != null && choices.isArray() && choices.size() > 0) {
+                            JsonNode delta = choices.get(0).get("delta");
+                            if (delta != null && delta.has("content")) {
+                                return delta.get("content").asText();
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.debug("Parse SSE token error: {}", data);
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull);
+    }
+
+    /**
      * 以 SSE 格式发送 token
      * data: {"type":"token","content":"..."}\n\n
      */

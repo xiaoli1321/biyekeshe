@@ -3,7 +3,7 @@
     <!-- Sidebar -->
     <div class="chat-sidebar">
       <div class="sidebar-header">
-        <button class="btn btn-primary w-100" @click="startNewChat">
+        <button class="btn btn-new-chat w-100 shadow-sm" @click="startNewChat">
           <i class="bi bi-plus-lg me-2"></i>新对话
         </button>
       </div>
@@ -97,15 +97,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { agentApi, Agent, Conversation, Message } from '@/services/api/agent'
+import { useAgentStore } from '@/stores/agent'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
 const route = useRoute()
 const router = useRouter()
-const agentId = route.params.agentId as string
+const agentStore = useAgentStore()
+const agentId = computed(() => route.params.agentId as string)
 
 const currentAgent = ref<Agent | null>(null)
 const conversations = ref<Conversation[]>([])
@@ -132,23 +134,26 @@ const scrollToBottom = async () => {
 }
 
 const fetchAgent = async () => {
-  try {
-    const response = await agentApi.getAgents()
-    currentAgent.value = response.data.find(a => a.id === agentId) || null
-  } catch (err) {
-    console.error(err)
+  // First try to get from store
+  const agent = agentStore.getAgentById(agentId.value)
+  if (agent) {
+    currentAgent.value = agent
+  } else {
+    // If not in store, fetch list (e.g. on direct page access)
+    await agentStore.fetchMyAgents()
+    currentAgent.value = agentStore.getAgentById(agentId.value) || null
   }
 }
 
 const fetchConversations = async () => {
   try {
-    const response = await agentApi.getConversations(agentId)
-    conversations.value = response.data
+    const response = await agentApi.getConversations(agentId.value)
+    conversations.value = response as any
     if (conversations.value.length > 0 && !currentConvId.value) {
       selectConversation(conversations.value[0].id)
     }
   } catch (err) {
-    console.error(err)
+    console.error('Failed to fetch conversations:', err)
   }
 }
 
@@ -156,20 +161,22 @@ const selectConversation = async (id: string) => {
   currentConvId.value = id
   try {
     const response = await agentApi.getMessages(id)
-    messages.value = response.data
+    messages.value = response
     scrollToBottom()
   } catch (err) {
-    console.error(err)
+    console.error('Failed to select conversation:', err)
   }
 }
 
 const startNewChat = async () => {
   try {
-    const response = await agentApi.startConversation(agentId, '新对话')
-    conversations.value.unshift(response.data)
-    selectConversation(response.data.id)
+    const response = await agentApi.startConversation(agentId.value, '新对话')
+    conversations.value.unshift(response as any)
+    await selectConversation(response.id)
+    return response.id
   } catch (err) {
-    console.error(err)
+    console.error('Failed to start new chat:', err)
+    return null
   }
 }
 
@@ -179,38 +186,58 @@ const sendMessage = async () => {
   const content = userInput.value
   userInput.value = ''
   
-  if (!currentConvId.value) {
-    await startNewChat()
+  let convId = currentConvId.value
+  if (!convId) {
+    convId = await startNewChat()
+    if (!convId) return // Failed to create conversation
   }
 
   // Add user message locally
   const tempId = 'temp-' + Date.now()
   messages.value.push({
     id: tempId,
-    conversationId: currentConvId.value!,
+    conversationId: convId,
     role: 'user',
     content,
     createdAt: new Date().toISOString()
-  })
+  } as Message)
   scrollToBottom()
 
   isStreaming.value = true
   streamingContent.value = ''
 
-  agentApi.chatStream(agentId, currentConvId.value!, content, (token) => {
+  const es = agentApi.chatStream(agentId.value, convId, content, (token) => {
     streamingContent.value += token
     scrollToBottom()
   })
 
-  // Watch for completion (EventSource error/close is hard to judge as 'success' without Custom Event)
-  // Here we just keep streamingContent until the next turn or a simplified delay
-  // In a real app, SSE would have a [DONE] token or a separate completion callback.
-  // For now, let's assume it finishes when content stops arriving (MVP).
+  es.onerror = async () => {
+    // When stream finishes (or errors/closes), refresh messages to get the persisted assistant message
+    if (streamingContent.value) {
+       await selectConversation(currentConvId.value!)
+    }
+    isStreaming.value = false
+    streamingContent.value = ''
+    es.close()
+  }
 }
 
 onMounted(() => {
   fetchAgent()
   fetchConversations()
+})
+
+watch(() => route.params.agentId, (newId) => {
+  if (newId) {
+    // Reset state for new agent
+    currentConvId.value = null
+    messages.value = []
+    streamingContent.value = ''
+    
+    // Re-fetch data
+    fetchAgent()
+    fetchConversations()
+  }
 })
 
 watch(streamingContent, () => {
@@ -254,8 +281,8 @@ watch(streamingContent, () => {
 }
 
 .conv-item.active {
-  background: #eef5ff;
-  border-right: 3px solid #0d6efd;
+  background: #f3f4f6;
+  border-left: 4px solid #6366f1;
 }
 
 .conv-title {
@@ -302,6 +329,22 @@ watch(streamingContent, () => {
   overflow: hidden;
 }
 
+.btn-new-chat {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  color: white;
+  border: none;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0.75rem;
+  transition: all 0.3s ease;
+}
+
+.btn-new-chat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  filter: brightness(1.1);
+}
+
 .avatar-img-small, .avatar-img-xs {
   width: 100%;
   height: 100%;
@@ -309,10 +352,11 @@ watch(streamingContent, () => {
 }
 
 .avatar-img-large {
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   object-fit: cover;
   border-radius: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
 .agent-meta h5 {
