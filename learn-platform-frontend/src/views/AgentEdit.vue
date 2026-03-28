@@ -52,41 +52,45 @@
                  <textarea class="form-control" rows="4" v-model="form.description" placeholder="输入功能性助理的描述"></textarea>
                </div>
 
-               <div class="mb-4">
-                  <h6 class="fw-bold mb-3">功能配置</h6>
-                  <div class="card border mb-3 bg-light-subtle">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
-                      <div class="d-flex align-items-center">
-                        <div class="icon-square bg-primary-subtle me-3">
-                          <i class="bi bi-grid-fill text-primary"></i>
-                        </div>
-                        <div>
-                          <div class="fw-bold small">多模态功能</div>
-                          <div class="x-small text-muted">启用后支持上传图片、文档等文件</div>
-                        </div>
-                      </div>
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" disabled>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="card border bg-light-subtle">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
-                      <div class="d-flex align-items-center">
-                        <div class="icon-square bg-success-subtle me-3">
-                          <i class="bi bi-chat-dots-fill text-success"></i>
-                        </div>
-                        <div>
-                          <div class="fw-bold small">启用状态</div>
-                          <div class="x-small text-muted">控制助理是否可以被使用</div>
+               <div class="mb-4 text-center">
+                 <h6 class="fw-bold mb-3 text-start">功能配置</h6>
+                 <div class="row g-3">
+                   <div class="col-md-6">
+                      <div class="card border bg-light-subtle h-100">
+                        <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                          <div class="d-flex align-items-center">
+                            <div class="icon-square bg-success-subtle me-3">
+                              <i class="bi bi-chat-dots-fill text-success"></i>
+                            </div>
+                            <div class="text-start">
+                              <div class="fw-bold small">启用状态</div>
+                              <div class="x-small text-muted">控制助理是否可以被使用</div>
+                            </div>
+                          </div>
+                          <div class="form-check form-switch pt-1">
+                            <input class="form-check-input" type="checkbox" v-model="form.enabled">
+                          </div>
                         </div>
                       </div>
-                      <span class="badge rounded-pill" :class="form.enabled ? 'bg-primary' : 'bg-secondary'">
-                        {{ form.enabled ? '已启用' : '已禁用' }}
-                      </span>
-                    </div>
-                  </div>
+                   </div>
+                   <div class="col-md-6">
+                      <div class="card border bg-primary-subtle border-primary-subtle h-100">
+                        <div class="card-body p-3">
+                          <div class="d-flex align-items-center gap-2 mb-2">
+                             <div class="icon-square-sm bg-primary text-white">
+                               <i class="bi bi-cpu"></i>
+                             </div>
+                             <div class="fw-bold small">推理模型</div>
+                          </div>
+                          <select class="form-select form-select-sm shadow-none border-primary-subtle" v-model="form.modelId">
+                            <option v-for="m in models" :key="m.id" :value="m.id">
+                              {{ m.name }}
+                            </option>
+                          </select>
+                        </div>
+                      </div>
+                   </div>
+                 </div>
                </div>
             </div>
 
@@ -106,11 +110,41 @@
                </div>
             </div>
 
-            <!-- Tab 3: Tools -->
+            <!-- Tab 3: Tools & Knowledge Base -->
              <div v-show="activeTab === 'tools'">
-               <div class="text-center py-5 text-muted opacity-50">
-                 <i class="bi bi-tools h1 d-block mb-3"></i>
-                 <p>该功能将在后续版本中开放集成</p>
+               <div class="mb-4">
+                 <h6 class="fw-bold mb-3">知识库挂载 (RAG)</h6>
+                 <div class="card border bg-light-subtle">
+                   <div class="card-body p-4">
+                     <div class="d-flex align-items-center gap-3 mb-3">
+                       <div class="icon-square bg-info-subtle">
+                         <i class="bi bi-database-fill text-info"></i>
+                       </div>
+                       <div>
+                         <div class="fw-bold small">关联知识库空间</div>
+                         <div class="x-small text-muted">启用后，助理在回答前会先检索该空间内的文档知识</div>
+                       </div>
+                     </div>
+                     
+                     <select class="form-select form-select-sm" v-model="form.kbCollectionId">
+                       <option value="">不使用知识库</option>
+                       <option v-for="kb in kbCollections" :key="kb.id" :value="kb.id">
+                         {{ kb.name }}
+                       </option>
+                     </select>
+                     
+                     <div v-if="form.kbCollectionId" class="mt-3 p-3 bg-white border rounded-2 x-small">
+                        <i class="bi bi-info-circle me-1"></i> 
+                        当前已关联 <b>{{ kbCollections.find(k => k.id === form.kbCollectionId)?.name }}</b>。
+                        助理将具备该空间下的文档检索能力。
+                     </div>
+                   </div>
+                 </div>
+               </div>
+
+               <div class="text-center py-4 text-muted opacity-50 border-top mt-4">
+                 <i class="bi bi-tools h4 d-block mb-2"></i>
+                 <p class="x-small">更多工具 (Plugins/Actions) 将在后续版本开放</p>
                </div>
              </div>
           </div>
@@ -183,7 +217,7 @@
                     </tr>
                     <tr class="border-bottom">
                       <td class="p-2 text-muted px-3">知识库数量</td>
-                      <td class="p-2 text-end px-3 fw-bold">0</td>
+                      <td class="p-2 text-end px-3 fw-bold">{{ form.kbCollectionId ? 1 : 0 }}</td>
                     </tr>
                     <tr>
                       <td class="p-2 text-muted px-3">状态</td>
@@ -208,9 +242,13 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { agentApi, Agent } from '@/services/api/agent'
+import { getLlmProviders, LlmProviderDto } from '@/services/api/llm'
+import { kbApi, KbCollection } from '@/services/api/kb'
+import { useAgentStore } from '@/stores/agent'
 
 const route = useRoute()
 const router = useRouter()
+const agentStore = useAgentStore()
 const agentId = route.params.agentId as string
 const isNew = computed(() => agentId === 'new')
 
@@ -218,6 +256,8 @@ const loading = ref(true)
 const saving = ref(false)
 const activeTab = ref('basic')
 const avatarInput = ref<HTMLInputElement | null>(null)
+const models = ref<LlmProviderDto[]>([])
+const kbCollections = ref<KbCollection[]>([])
 
 const form = ref<Partial<Agent>>({
   name: '',
@@ -232,6 +272,18 @@ const form = ref<Partial<Agent>>({
 const goBack = () => router.push('/studio')
 
 const fetchAgent = async () => {
+  // Fetch lists first
+  try {
+    const [providers, collections] = await Promise.all([
+      getLlmProviders(),
+      kbApi.fetchCollections()
+    ])
+    models.value = providers
+    kbCollections.value = collections
+  } catch (err) {
+    console.error('Failed to fetch config lists', err)
+  }
+
   if (isNew.value) {
     loading.value = false
     return
@@ -265,6 +317,7 @@ const saveAgent = async () => {
     } else {
       await agentApi.updateAgent(agentId, form.value)
     }
+    await agentStore.fetchMyAgents() // Refresh global state
     router.push('/studio')
   } catch (error) {
     console.error(error)
