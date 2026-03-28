@@ -7,8 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.ArrayList;
-import java.util.List;
+
 
 /**
  * 数据初始化器
@@ -24,6 +23,7 @@ public class DataInitializer {
                               ConceptRepository conceptRepository,
                               RelationshipRepository relationshipRepository,
                               ProgressRepository progressRepository,
+                              AgentRepository agentRepository,
                               PasswordEncoder passwordEncoder) {
         return args -> {
             // 开发环境 - 只在用户不存在时创建，避免 ID 变化导致关联数据失效
@@ -153,6 +153,30 @@ public class DataInitializer {
                 chapterRepository.save(wChapter2);
 
                 System.out.println("Created frontend development course");
+            }
+
+            // --- AgentX 默认智能体初始化 ---
+            if (agentRepository.count() == 0) {
+                User admin = userRepository.findByEmail("admin@learning.com").orElse(null);
+                if (admin != null) {
+                    Agent dsAgent = new Agent("DeepSeek V3 助手", 
+                        "你是一个全能的编程和生活助手，由 DeepSeek 提供动力。请以专业、友好的姿态回答用户问题。", 
+                        "default-v3", admin.getId());
+                    dsAgent.setDescription("基于 DeepSeek V3 的全能型 AI 助手，擅长编程、写作和逻辑分析。");
+                    dsAgent.setWelcomeMessage("你好！我是您的 DeepSeek 助手。今天有什么可以帮您的？");
+                    dsAgent.setEnabled(true);
+                    agentRepository.save(dsAgent);
+
+                    Agent javaAgent = new Agent("Java 学习导师", 
+                        "你是一个资深的 Java 开发工程师和教育者。你的目标是帮助学生理解 Java 的核心概念、最佳实践和底层原理。", 
+                        "default-v3", admin.getId());
+                    javaAgent.setDescription("专注于 Java 编程教学的 AI 导师，能够深入浅出地讲解 JVM、并发模型和设计模式。");
+                    javaAgent.setWelcomeMessage("你好，同学！我是你的 Java 学习导师。让我们一起攻克 Java 的难点吧！");
+                    javaAgent.setEnabled(true);
+                    agentRepository.save(javaAgent);
+
+                    System.out.println("✓ AgentX 默认智能体已初始化");
+                }
             }
         };
     }
