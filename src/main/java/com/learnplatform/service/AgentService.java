@@ -2,6 +2,7 @@ package com.learnplatform.service;
 
 import com.learnplatform.entity.Agent;
 import com.learnplatform.entity.Conversation;
+import com.learnplatform.entity.KbChunk;
 import com.learnplatform.entity.Message;
 import com.learnplatform.repository.AgentRepository;
 import com.learnplatform.repository.ConversationRepository;
@@ -35,6 +36,9 @@ public class AgentService {
     @Autowired
     private LlmStreamingService llmStreamingService;
 
+    @Autowired
+    private KnowledgeBaseService knowledgeBaseService;
+
     /**
      * 实现 "The N+1 Strategy" (摘要 + 滑动窗口) 的上下文构建
      * 当前简化版：提取最近的 K 条历史记录
@@ -44,7 +48,7 @@ public class AgentService {
         if (history.size() <= windowSize) {
             return history;
         }
-        // 滑动窗口：取最近的 windowSize 条
+        // "The N+1 Strategy" Sliding Window (currently simplified as last N)
         return history.subList(history.size() - windowSize, history.size());
     }
 
@@ -69,23 +73,51 @@ public class AgentService {
         // 3. 构建上下文 (N+1 策略)
         List<Message> context = buildContext(conversationId, 10);
         
-        // 4. 调用 LLM 流式服务
-        // 构造 System Prompt 和历史记录 (转换格式)
+        // 4. RAG Logic (Knowledge Base Integration)
+        String llmInput = userContent;
+        System.out.println("DEBUG: Agent [" + agent.getName() + " (ID: " + agentId + ")] kbCollectionId: [" + agent.getKbCollectionId() + "]");
+        
+        if (agent.getKbCollectionId() != null && !agent.getKbCollectionId().isEmpty()) {
+            System.out.println("RAG: Searching Knowledge Base collection: " + agent.getKbCollectionId() + " for query: " + userContent);
+            List<KbChunk> chunks = knowledgeBaseService.hybridSearch(userContent, agent.getKbCollectionId(), 5);
+            if (!chunks.isEmpty()) {
+                System.out.println("RAG: Success. Found " + chunks.size() + " chunks.");
+                String contextStr = chunks.stream()
+                        .map(KbChunk::getContent)
+                        .collect(Collectors.joining("\n---\n"));
+                
+                // Enhance prompt for better RAG compliance (Instructional Authority)
+                llmInput = "### [系统：检索到相关背景知识]\n" + 
+                           contextStr + "\n\n" +
+                           "### [用户问题]\n" + 
+                           userContent + "\n\n" +
+                           "--- \n" +
+                           "【指令】请严格基于上述[背景知识]回答用户问题。若知识中没有相关内容，请按照你的通用知识实话实说，但必须优先核对背景知识。";
+            } else {
+                System.out.println("RAG: No relevant chunks found in Knowledge Base collection: " + agent.getKbCollectionId());
+            }
+        } else {
+            System.out.println("RAG: KB Collection ID is empty/null, skipping RAG.");
+        }
+
+        // 5. 构造历史记录 (转换格式)
         List<Map<String, String>> history = context.stream()
                 .map(m -> Map.of("role", m.getRole(), "content", m.getContent()))
                 .collect(Collectors.toList());
-        
+
+        // 6. 调用 LLM 流式服务
         StringBuilder assistantReply = new StringBuilder();
 
-        return llmStreamingService.getGeneralFlux(userContent, agent.getModelId(), history, agent.getSystemPrompt())
+        return llmStreamingService.getGeneralFlux(llmInput, agent.getModelId(), history, agent.getSystemPrompt())
                 .doOnNext(token -> {
-                    // 累积回复内容，用于最后持久化
                     assistantReply.append(token);
                 })
                 .doOnComplete(() -> {
-                    // 5. 对话完成后保存助手消息
-                    Message assistantMsg = new Message(conversationId, "assistant", assistantReply.toString());
-                    messageRepository.save(assistantMsg);
+                    // Persistence: Assistant Reply
+                    if (assistantReply.length() > 0) {
+                        Message assistantMsg = new Message(conversationId, "assistant", assistantReply.toString());
+                        messageRepository.save(assistantMsg);
+                    }
                 });
     }
 
@@ -109,7 +141,13 @@ public class AgentService {
 
     public Conversation startConversation(String agentId, String userId, String title) {
         Conversation conv = new Conversation(agentId, userId, title);
+        conv.setCreatedAt(LocalDateTime.now());
+        conv.setLastMessageAt(LocalDateTime.now());
         return conversationRepository.save(conv);
+    }
+
+    public List<Conversation> getConversationsByAgent(String agentId, String userId) {
+        return conversationRepository.findByAgentIdAndUserIdOrderByLastMessageAtDesc(agentId, userId);
     }
 
     public Agent updateAgent(String agentId, String userId, Agent details) {
@@ -125,6 +163,7 @@ public class AgentService {
         agent.setWelcomeMessage(details.getWelcomeMessage());
         agent.setEnabled(details.isEnabled());
         agent.setModelId(details.getModelId());
+        agent.setKbCollectionId(details.getKbCollectionId());
         agent.setLastModifiedAt(LocalDateTime.now());
         return agentRepository.save(agent);
     }

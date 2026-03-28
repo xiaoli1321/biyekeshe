@@ -7,6 +7,7 @@ import com.learnplatform.repository.KbDocumentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -163,28 +164,59 @@ public class KnowledgeBaseService {
                 .toList();
         
         if (docIds.isEmpty()) {
-            log.warn("Collection [{}] has no documents", collectionId);
+            log.warn("Collection [{}] has no documents - check if files were uploaded and parsed successfully", collectionId);
             return Collections.emptyList();
         }
+        log.info("RAG Trace: Searching across {} documents.", docIds.size());
 
-        // --- 召回阶段 1: 关键词召回 ---
+        // --- 召回阶段 1: 关键词召白 ---
         Set<String> keywordChunkIds = new HashSet<>();
         List<KbChunk> keywordRecall = new ArrayList<>();
         try {
+            // Attempt standard MongoDB Text search first
             keywordRecall = chunkRepository.searchByKeyword(query).stream()
                     .filter(c -> docIds.contains(c.getDocumentId()))
                     .collect(Collectors.toList());
-            log.info("Keyword recall: found {} chunks", keywordRecall.size());
+            log.info("RAG Trace: Keyword recall found {} chunks", keywordRecall.size());
         } catch (Exception e) {
-            log.warn("Keyword search failed, falling back to regex: {}", e.getMessage());
-            keywordRecall = chunkRepository.findByContentContainingIgnoreCase(query).stream()
-                    .filter(c -> docIds.contains(c.getDocumentId()))
-                    .collect(Collectors.toList());
+            log.warn("Text search failed or not configured: {}", e.getMessage());
+        }
+
+        // --- 召回阶段 1.5: 分词增强召回 (Robust Fallback) ---
+        if (keywordRecall.isEmpty()) {
+            List<String> keywords = tokenizeQuery(query);
+            log.info("RAG Trace: No text match, starting fallback for keywords: {}", keywords);
+            // Search chunks containing any keyword
+            Map<String, Integer> hitCount = new HashMap<>();
+            Map<String, KbChunk> hitMap = new HashMap<>();
+
+            for (String kw : keywords) {
+                List<KbChunk> matches = chunkRepository.findByContentContainingIgnoreCase(kw).stream()
+                        .filter(c -> docIds.contains(c.getDocumentId()))
+                        .toList();
+                for (KbChunk m : matches) {
+                    hitCount.put(m.getId(), hitCount.getOrDefault(m.getId(), 0) + 1);
+                    hitMap.put(m.getId(), m);
+                }
+            }
+            
+            // Sort by hit count (descending)
+            keywordRecall = hitCount.entrySet().stream()
+                    .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
+                    .limit(topK * 2)
+                    .map(e -> hitMap.get(e.getKey()))
+                    .toList();
+            log.info("RAG Trace: Hybrid keyword fallback found {} chunks", keywordRecall.size());
         }
         for (KbChunk c : keywordRecall) keywordChunkIds.add(c.getId());
 
         // --- 召回阶段 2: 向量召回 ---
+        log.info("RAG Trace: Requesting query embedding...");
         float[] queryVector = embeddingService.getEmbedding(query);
+        if (queryVector == null) {
+            log.error("RAG ERROR: Vectorization failed for query [{}]. Check Embedding API connectivity and key.", query);
+        }
+        
         List<KbChunk> vectorRecall = new ArrayList<>();
         if (queryVector != null) {
             // 获取该 Collection 下的所有片段进行遍历计算 (本地 MVP 方案)
@@ -192,15 +224,26 @@ public class KnowledgeBaseService {
             for (String docId : docIds) {
                 allCollectionChunks.addAll(chunkRepository.findByDocumentId(docId));
             }
-            log.info("Vector recall: calculating similarity against {} total chunks", allCollectionChunks.size());
+            log.info("RAG Trace: Comparing query against {} total chunks in collection", allCollectionChunks.size());
 
             vectorRecall = allCollectionChunks.stream()
                     .filter(c -> c.getEmbedding() != null && c.getEmbedding().length > 0)
+                    .peek(c -> {
+                        if (c.getEmbedding().length != queryVector.length) {
+                            log.error("RAG DIMENSION MISMATCH: Chunk {} has dim {}, Query has dim {}. Score will be 0.", 
+                                    c.getId(), c.getEmbedding().length, queryVector.length);
+                        }
+                    })
                     .map(c -> new ScoredChunk(c, calculateCosineSimilarity(queryVector, c.getEmbedding())))
+                    .filter(sc -> sc.score > 0.05)
                     .sorted((sc1, sc2) -> Double.compare(sc2.score, sc1.score))
                     .limit(topK * 4) // 先多取一点用于重排
                     .map(sc -> sc.chunk)
                     .collect(Collectors.toList());
+            log.info("RAG Trace: Vector recall found {} candidates.", vectorRecall.size());
+            if (vectorRecall.isEmpty() && !allCollectionChunks.isEmpty()) {
+                log.error("RAG FATAL: Vector search returned 0 results. Check DIMENSION MISMATCH logs above.");
+            }
         }
 
         // --- 阶段 3: 重排序 (Rerank) ---
@@ -246,6 +289,19 @@ public class KnowledgeBaseService {
     }
 
     /**
+     * 便捷分词器：将查询转换为关键字列表，用于兜底检索
+     */
+    private List<String> tokenizeQuery(String query) {
+        if (query == null) return Collections.emptyList();
+        // 简单正则：过滤标点符号，转换为小写，按空格拆分
+        String cleaned = query.replaceAll("[\\p{Punct}\\s]+", " ");
+        return Arrays.stream(cleaned.split(" "))
+                .filter(s -> s.length() > 1) // 忽略单字符（如“的”、“了”）
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    /**
      * 计算余弦相似度
      */
     private double calculateCosineSimilarity(float[] vectorA, float[] vectorB) {
@@ -255,7 +311,7 @@ public class KnowledgeBaseService {
         double normB = 0.0;
         for (int i = 0; i < vectorA.length; i++) {
             dotProduct += vectorA[i] * vectorB[i];
-            normA += vectorA[i] * vectorB[i];
+            normA += vectorA[i] * vectorA[i];
             normB += vectorB[i] * vectorB[i];
         }
         if (normA == 0 || normB == 0) return 0.0;
@@ -269,5 +325,29 @@ public class KnowledgeBaseService {
             this.chunk = chunk;
             this.score = score;
         }
+    }
+
+    /**
+     * 重新向量化集合中的所有分块 (用于模型更换后的迁移)
+     */
+    @Async
+    public void reIndexCollection(String collectionId) {
+        log.info("RAG: Starting re-indexing for collection {}", collectionId);
+        List<String> docIds = documentRepository.findByCollectionId(collectionId).stream()
+                .map(KbDocument::getId)
+                .toList();
+        
+        for (String docId : docIds) {
+            List<KbChunk> chunks = chunkRepository.findByDocumentId(docId);
+            for (KbChunk chunk : chunks) {
+                float[] newEmbedding = embeddingService.getEmbedding(chunk.getContent());
+                if (newEmbedding != null) {
+                    chunk.setEmbedding(newEmbedding);
+                    chunk.setVectorStatus("DONE");
+                    chunkRepository.save(chunk);
+                }
+            }
+        }
+        log.info("RAG: Re-indexing completed for collection {}", collectionId);
     }
 }

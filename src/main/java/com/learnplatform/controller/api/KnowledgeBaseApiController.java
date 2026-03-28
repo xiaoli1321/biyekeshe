@@ -175,4 +175,15 @@ public class KnowledgeBaseApiController {
             log.error("KB Chat streaming error: {}", e.getMessage());
         }
     }
+
+    @Operation(summary = "重构向量索引", description = "当更换 Embedding 模型后，可调用此接口重新计算集合内所有分块的向量")
+    @PostMapping("/collections/{collectionId}/reindex")
+    public ApiResponse<String> reIndex(@PathVariable("collectionId") String collectionId, Authentication authentication) {
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        if (!collectionService.existsAndBelongsToUser(collectionId, userPrincipal.getId())) {
+            return ApiResponse.error("无权操作", "FORBIDDEN");
+        }
+        kbService.reIndexCollection(collectionId);
+        return ApiResponse.success("重构索引任务已在后台启动");
+    }
 }
