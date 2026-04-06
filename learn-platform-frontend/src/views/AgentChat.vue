@@ -54,14 +54,20 @@
           </div>
         </div>
 
-        <div v-for="msg in messages" :key="msg.id" :class="['message-row', msg.role]">
-          <div class="message-avatar">
-            <i :class="msg.role === 'user' ? 'bi bi-person' : 'bi bi-robot'"></i>
+        <template v-for="msg in messages" :key="msg.id">
+          <div :class="['message-row', msg.role]">
+            <div class="message-avatar">
+              <i :class="msg.role === 'user' ? 'bi bi-person' : 'bi bi-robot'"></i>
+            </div>
+            <div class="message-bubble">
+              <div class="message-content markdown-body" v-html="renderMarkdown(msg.content)"></div>
+            </div>
           </div>
-          <div class="message-bubble">
-            <div class="message-content markdown-body" v-html="renderMarkdown(msg.content)"></div>
+          <!-- Workflow Panel: Full-width, outside message bubble -->
+          <div v-if="getWorkflowData(msg.content)" class="workflow-full-row">
+            <WorkflowGraph :data="getWorkflowData(msg.content)" />
           </div>
-        </div>
+        </template>
         
         <!-- Streaming Message Holder -->
         <div v-if="isStreaming" class="message-row assistant">
@@ -72,6 +78,10 @@
           <div class="message-bubble">
             <div class="message-content markdown-body" v-html="renderMarkdown(streamingContent)"></div>
           </div>
+        </div>
+        <!-- Streaming Workflow Panel: Full-width -->
+        <div v-if="isStreaming && getWorkflowData(streamingContent)" class="workflow-full-row">
+          <WorkflowGraph :data="getWorkflowData(streamingContent)" />
         </div>
       </div>
 
@@ -101,6 +111,7 @@ import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { agentApi, Agent, Conversation, Message } from '@/services/api/agent'
 import { useAgentStore } from '@/stores/agent'
+import WorkflowGraph from '@/components/workflow/WorkflowGraph.vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -119,7 +130,27 @@ const streamingContent = ref('')
 const messageBox = ref<HTMLElement | null>(null)
 
 const renderMarkdown = (content: string) => {
-  return DOMPurify.sanitize(marked.parse(content || '') as string)
+  // Hide the raw JSON from markdown rendering if it's a workflow
+  const cleanContent = content.replace(/```json\s*[\s\S]*?"workflow_name"[\s\S]*?```/g, '> [工作流动态生成中...]\n')
+  return DOMPurify.sanitize(marked.parse(cleanContent || '') as string)
+}
+
+const getWorkflowData = (content: string) => {
+  if (!content) return null
+  try {
+    // Match JSON block containing workflow_name
+    const match = content.match(/```json\s*([\s\S]*?"workflow_name"[\s\S]*?)\s*```/)
+    if (match && match[1]) {
+      const data = JSON.parse(match[1])
+      // Support new executable format (steps array)
+      if (data.steps && Array.isArray(data.steps) && data.steps.length > 0) return data
+      // Legacy fallback for nodes/edges DAG format
+      if (data.nodes && data.edges) return data
+    }
+  } catch (e) {
+    // Possibly partial JSON during streaming, ignore
+  }
+  return null
 }
 
 const formatDate = (date: string) => {
@@ -135,13 +166,21 @@ const scrollToBottom = async () => {
 
 const fetchAgent = async () => {
   // First try to get from store
-  const agent = agentStore.getAgentById(agentId.value)
+  let agent = agentStore.getAgentById(agentId.value)
   if (agent) {
     currentAgent.value = agent
   } else {
-    // If not in store, fetch list (e.g. on direct page access)
-    await agentStore.fetchMyAgents()
-    currentAgent.value = agentStore.getAgentById(agentId.value) || null
+    // If not in store, fetch the public list as well
+    await agentStore.fetchAllAgents()
+    agent = agentStore.getAgentById(agentId.value)
+    
+    if (!agent) {
+      // Fallback: search my agents list again
+      await agentStore.fetchMyAgents()
+      agent = agentStore.getAgentById(agentId.value)
+    }
+
+    currentAgent.value = agent || null
   }
 }
 
@@ -476,5 +515,13 @@ watch(streamingContent, () => {
   font-size: 0.75rem;
   color: #999;
   margin-top: 0.5rem;
+}
+
+/* Full-width workflow preview panel — breaks out of message bubble constraints */
+.workflow-full-row {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  padding: 0 2rem;
 }
 </style>

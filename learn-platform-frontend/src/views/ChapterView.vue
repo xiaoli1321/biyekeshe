@@ -61,15 +61,28 @@
         <div class="col-lg-8">
           <div class="card">
             <div class="card-body">
-              <!-- Video Player -->
-              <div v-if="chapter.type === 'VIDEO' && chapter.videoUrl" class="ratio ratio-16x9 mb-4 shadow-sm rounded overflow-hidden">
-                <video 
-                  controls 
-                  class="w-100 h-100"
-                  :src="chapter.videoUrl"
-                >
-                  您的浏览器不支持视频播放。
-                </video>
+              <!-- Video Player (Support File/Bilibili/YouTube) -->
+              <div v-if="chapter.type === 'VIDEO' && chapter.videoUrl" class="ratio ratio-16x9 mb-4 shadow-sm rounded overflow-hidden bg-black">
+                <template v-if="videoInfo.type === 'BILIBILI' || videoInfo.type === 'YOUTUBE'">
+                  <iframe 
+                    :src="videoInfo.embedUrl" 
+                    scrolling="no" 
+                    border="0" 
+                    frameborder="no" 
+                    framespacing="0" 
+                    allowfullscreen="true"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  ></iframe>
+                </template>
+                <template v-else>
+                  <video 
+                    controls 
+                    class="w-100 h-100"
+                    :src="videoInfo.embedUrl"
+                  >
+                    您的浏览器不支持视频播放。
+                  </video>
+                </template>
               </div>
 
               <div v-if="chapter.content" v-html="chapter.content"></div>
@@ -174,13 +187,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useCourseStore } from '@/stores/course'
 import { chapterApi } from '@/services/api/chapter'
 import Loading from '@/components/Loading.vue'
 import AiSidekick from '@/components/AiSidekick.vue'
 import type { Chapter, ConceptNode } from '@/types'
+import { getVideoInfo } from '@/utils/video'
 
 const route = useRoute()
 const courseStore = useCourseStore()
@@ -195,6 +209,11 @@ const chapters = ref<(Chapter & { completed?: boolean })[]>([])
 const courseTitle = computed(() => courseStore.currentCourse?.title || courseStore.currentCourse?.name || '课程')
 const completedChapterIds = ref<string[]>([])
 const prerequisites = ref<ConceptNode[]>([])
+
+const videoInfo = computed(() => {
+  if (!chapter.value?.videoUrl) return { type: 'UNKNOWN', embedUrl: '' }
+  return getVideoInfo(chapter.value.videoUrl)
+})
 
 const markAsCompleted = async () => {
   if (!chapter.value) {

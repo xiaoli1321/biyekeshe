@@ -472,6 +472,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { Modal } from 'bootstrap'
 
@@ -530,6 +531,8 @@ const registerForm = ref<LlmProviderRequest>({
   baseUrl: 'https://api.deepseek.com/v1'
 })
 
+const route = useRoute()
+
 onMounted(async () => {
   if (registerModalRef.value) {
     registerModalInstance = new Modal(registerModalRef.value)
@@ -538,6 +541,38 @@ onMounted(async () => {
     llmProviders.value = await getLlmProviders()
   } catch (e) {
     console.error('Failed to load llm providers', e)
+  }
+
+  // === AI Workflow Injection: Load steps from agent chat ===
+  if (route.query.from === 'ai') {
+    try {
+      const stepsJson = sessionStorage.getItem('ai_workflow_steps')
+      const wfName = sessionStorage.getItem('ai_workflow_name') || ''
+      if (stepsJson) {
+        const aiSteps = JSON.parse(stepsJson)
+        if (Array.isArray(aiSteps) && aiSteps.length > 0) {
+          // Switch to custom template and inject AI-generated steps
+          selectedTemplateId.value = 'custom'
+          customSteps.value = aiSteps.map((s: any) => ({
+            id: s.id || uuidv4(),
+            type: s.type || 'text',
+            title: s.title || '',
+            content: s.content || '',
+            isThinkingProcess: s.isThinkingProcess || false,
+            model: s.model || 'default-v3',
+            systemPrompt: s.systemPrompt || '',
+            historyMode: s.historyMode || 'all'
+          }))
+          workflowName.value = wfName
+          console.log('[AI Workflow] Injected', aiSteps.length, 'steps from agent chat')
+        }
+        // Clean up sessionStorage after loading
+        sessionStorage.removeItem('ai_workflow_steps')
+        sessionStorage.removeItem('ai_workflow_name')
+      }
+    } catch (e) {
+      console.error('Failed to load AI-generated workflow steps:', e)
+    }
   }
 })
 

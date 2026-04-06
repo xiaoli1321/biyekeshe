@@ -41,12 +41,7 @@
               课程
             </router-link>
           </li>
-          <li class="nav-item">
-            <router-link class="nav-link" to="/finance">
-              <i class="bi bi-grid me-1"></i>
-              金融中心
-            </router-link>
-          </li>
+          <!-- Finance Center Hidden -->
           <li v-if="authStore.isAdmin" class="nav-item">
             <router-link class="nav-link" to="/admin/courses">
               <i class="bi bi-gear me-1"></i>
