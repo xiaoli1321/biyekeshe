@@ -1,54 +1,48 @@
 <template>
-  <div class="container">
-    <div class="row mb-4">
-      <div class="col-12">
-        <h1 class="display-6">
-          <i class="bi bi-diagram-3 me-2"></i>
-          知识图谱
-        </h1>
-        <p class="lead text-muted">
-          可视化展示课程与章节的网状结构
-        </p>
-      </div>
-    </div>
-
-    <!-- Graph Controls -->
-    <div class="row mb-4">
-      <div class="col-12">
-        <div class="card shadow-sm border-0">
-          <div class="card-body">
-            <div class="row align-items-center">
-              <div class="col-md-6">
-                <div class="input-group">
-                  <span class="input-group-text bg-transparent border-end-0">
-                    <i class="bi bi-search"></i>
-                  </span>
-                  <input
-                    type="text"
-                    class="form-control border-start-0 ps-0"
-                    placeholder="搜索课程或章节名称..."
-                    v-model="searchTerm"
-                    @input="handleSearch"
-                  />
-                </div>
-              </div>
-              <div class="col-md-6 text-end">
-                <button class="btn btn-outline-primary me-2" @click="resetZoom">
-                  <i class="bi bi-zoom-in me-1"></i>
-                  重置视图
-                </button>
-                <button class="btn btn-outline-secondary" @click="toggleLayout">
-                  <i class="bi bi-layout-text-window me-1"></i>
-                  切换布局 ({{ forceLayout === 'force' ? '力导向' : '环形' }})
-                </button>
-              </div>
-            </div>
+  <div class="container-fluid px-4 py-3">
+    <!-- Header -->
+    <div class="row mb-3">
+      <div class="col-12 d-flex align-items-center justify-content-between">
+        <div>
+          <h1 class="display-6 mb-0">
+            <i class="bi bi-diagram-3 me-2"></i>知识图谱
+          </h1>
+          <p class="text-muted small mb-0 mt-1">
+            {{ statsText }}
+          </p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <select class="form-select form-select-sm" style="width: 220px;" v-model="selectedCourseId" @change="loadGraph">
+            <option value="">-- 选择课程 --</option>
+            <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.name || c.title }}</option>
+          </select>
+          <div class="btn-group btn-group-sm">
+            <button class="btn" :class="layoutMode === 'force' ? 'btn-primary' : 'btn-outline-primary'" @click="setLayout('force')" title="力导向布局">
+              <i class="bi bi-bounding-box-circles"></i>
+            </button>
+            <button class="btn" :class="layoutMode === 'circular' ? 'btn-primary' : 'btn-outline-primary'" @click="setLayout('circular')" title="环形布局">
+              <i class="bi bi-circle"></i>
+            </button>
           </div>
+          <button class="btn btn-sm btn-outline-secondary" @click="resetView" title="重置视图">
+            <i class="bi bi-zoom-in"></i>
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Graph Visualization -->
+    <!-- Filter Panel -->
+    <GraphFilterPanel
+      v-model:difficulty="filterDifficulty"
+      v-model:progress="filterProgress"
+      v-model:relationType="filterRelationType"
+      v-model:highlightPathMode="highlightPathMode"
+      :pathNodes="pathNodes"
+      @showLearningPath="showLearningPath"
+      @resetAll="resetAll"
+    />
+
+    <!-- Graph Area -->
     <div class="row">
       <div class="col-12">
         <div class="card shadow-sm border-0 overflow-hidden">
@@ -56,95 +50,100 @@
             <div v-if="loading" class="position-absolute w-100 h-100 d-flex justify-content-center align-items-center" style="background: rgba(255,255,255,0.8); z-index: 10;">
               <Loading />
             </div>
-            
+            <div v-if="!selectedCourseId && !loading" class="d-flex justify-content-center align-items-center text-muted" style="height: 700px;">
+              <div class="text-center">
+                <i class="bi bi-arrow-up-circle" style="font-size: 3rem;"></i>
+                <p class="mt-2">请选择一门课程以加载知识图谱</p>
+              </div>
+            </div>
             <div
+              v-show="selectedCourseId"
               ref="chartContainer"
-              class="w-100"
+              class="w-100 position-relative"
               style="height: 700px; background-color: #f8f9fa;"
-            ></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Graph Legend -->
-    <div class="row mt-4">
-      <div class="col-12">
-        <div class="card shadow-sm border-0">
-          <div class="card-body">
-            <h6 class="mb-3 fw-bold">图例说明</h6>
-            <div class="row text-center">
-              <div class="col-md-4">
-                <div class="d-flex align-items-center justify-content-center">
-                  <div class="graph-node bg-primary me-2"></div>
-                  <span>核心课程节点</span>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="d-flex align-items-center justify-content-center">
-                  <div class="graph-node me-2" style="background-color: #28a745;"></div>
-                  <span>课程章节节点</span>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="d-flex align-items-center justify-content-center">
-                  <div class="me-2 d-flex align-items-center">
-                    <svg width="40" height="20">
-                      <line x1="0" y1="10" x2="30" y2="10" stroke="#999" stroke-width="2" />
-                      <polygon points="30,5 40,10 30,15" fill="#999" />
-                    </svg>
-                  </div>
-                  <span>包含关系</span>
-                </div>
-              </div>
+            >
+              <GraphMiniMap
+                :visible="graphData.nodes.length > 0"
+                :totalNodes="graphData.nodes.length"
+                :totalLinks="graphData.links.length"
+              />
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Node Details Panel -->
+    <!-- Context Menu -->
     <div
-      class="node-details-panel"
-      :class="{ 'show-panel': showDetails }"
+      v-if="contextMenu.visible"
+      class="context-menu card shadow border-0"
+      :style="{ position: 'fixed', left: contextMenu.x + 'px', top: contextMenu.y + 'px', zIndex: 2000 }"
     >
-      <div v-if="selectedNode" class="card shadow border-0 h-100">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-          <h5 class="mb-0 text-truncate" style="max-width: 200px;" :title="selectedNode.title">{{ selectedNode.title }}</h5>
-          <button class="btn-close btn-close-white" @click="closeDetails"></button>
-        </div>
-        <div class="card-body">
-          <div class="mb-3">
-            <span class="badge bg-secondary me-2">{{ selectedNode.type === 'course' ? '课程' : '章节' }}</span>
-            <span v-if="selectedNode.type === 'course'" class="badge" :class="selectedNode.difficulty === 'BEGINNER' ? 'bg-success' : selectedNode.difficulty === 'INTERMEDIATE' ? 'bg-warning text-dark' : 'bg-danger'">
-              难度: {{ selectedNode.difficulty === 'BEGINNER' ? '初级' : selectedNode.difficulty === 'INTERMEDIATE' ? '中级' : '高级' }}
-            </span>
-            <span v-if="selectedNode.type === 'chapter'" class="badge bg-info">
-              类型: {{ selectedNode.chapterType === 'VIDEO' ? '视频' : '文本' }}
-            </span>
+      <div class="list-group list-group-flush">
+        <button class="list-group-item list-group-item-action" @click="onContextMarkMastered">
+          <i class="bi bi-check-circle text-success me-2"></i>标记已掌握
+        </button>
+        <button class="list-group-item list-group-item-action" @click="onContextSetTarget">
+          <i class="bi bi-bullseye text-warning me-2"></i>{{ highlightPathMode ? '设为路径起点' : '查看详情' }}
+        </button>
+        <button class="list-group-item list-group-item-action" @click="onContextShowPrereqs">
+          <i class="bi bi-diagram-2 text-info me-2"></i>高亮先修链
+        </button>
+        <hr class="dropdown-divider my-0">
+        <button class="list-group-item list-group-item-action text-danger" @click="contextMenu.visible = false">
+          <i class="bi bi-x-circle me-2"></i>关闭菜单
+        </button>
+      </div>
+    </div>
+
+    <!-- Node Detail Panel -->
+    <GraphNodeDetail
+      :visible="showDetail"
+      :node="selectedNode"
+      :context="conceptContext"
+      @close="showDetail = false"
+      @navigateTo="navigateToConcept"
+      @progressChange="onProgressChange"
+    />
+
+    <!-- Learning Path Modal -->
+    <div class="modal fade" ref="learningPathModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title"><i class="bi bi-map me-2"></i>推荐学习路径</h5>
+            <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
-          <p class="text-muted">{{ selectedNode.description || '暂无描述信息' }}</p>
-          <p v-if="selectedNode.type === 'chapter'" class="text-muted small">
-            <i class="bi bi-clock"></i> 预计时长: {{ selectedNode.estimatedMinutes || 0 }} 分钟
-          </p>
-          
-          <hr>
-          
-          <div class="d-grid gap-2 mt-4">
-            <router-link
-              v-if="selectedNode.type === 'course'"
-              :to="`/courses/${selectedNode.courseId || selectedNode.id}`"
-              class="btn btn-primary"
-            >
-              <i class="bi bi-play-circle me-1"></i> 立即学习课程
-            </router-link>
-            <router-link
-              v-else
-              :to="`/chapters/${selectedNode.id}`"
-              class="btn btn-outline-primary"
-            >
-               进入章节内容
-            </router-link>
+          <div class="modal-body">
+            <div class="mb-3 small text-muted">
+              基于拓扑排序的最优学习路径，先修知识点在前，同级按难度和重要性排列
+            </div>
+            <div v-if="learningPath.length === 0" class="text-center text-muted py-5">
+              暂无学习路径数据
+            </div>
+            <div class="list-group" v-else>
+              <div
+                v-for="(item, idx) in learningPath"
+                :key="item.id"
+                class="list-group-item d-flex align-items-center"
+                :class="{ 'list-group-item-success': item._progressStatus === 'COMPLETED' }"
+              >
+                <span class="badge bg-primary rounded-pill me-3">{{ idx + 1 }}</span>
+                <div class="flex-grow-1">
+                  <strong>{{ item.name }}</strong>
+                  <span class="badge ms-2" :class="item.difficultyLevel <= 2 ? 'bg-success' : item.difficultyLevel <= 4 ? 'bg-warning text-dark' : 'bg-danger'">
+                    Lv.{{ item.difficultyLevel }}
+                  </span>
+                </div>
+                <span v-if="item._progressStatus === 'COMPLETED'" class="badge bg-success">已完成</span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">关闭</button>
+            <button class="btn btn-primary btn-sm" @click="highlightLearningPathOnGraph">
+              <i class="bi bi-eye me-1"></i>在图上高亮
+            </button>
           </div>
         </div>
       </div>
@@ -153,285 +152,514 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, shallowRef, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, shallowRef } from 'vue'
 import * as echarts from 'echarts'
+import { Modal } from 'bootstrap'
 import Loading from '@/components/Loading.vue'
-import { useCourseStore } from '@/stores/course'
+import GraphFilterPanel from '@/components/graph/GraphFilterPanel.vue'
+import GraphNodeDetail from '@/components/graph/GraphNodeDetail.vue'
+import GraphMiniMap from '@/components/graph/GraphMiniMap.vue'
+import { graphApi, type GraphNode, type GraphLink, type GraphData, type ConceptContext } from '@/services/api/graph'
+import { courseApi } from '@/services/api/course'
+import { chapterApi } from '@/services/api/chapter'
+import type { Course } from '@/types'
 
-const courseStore = useCourseStore()
-
-const loading = ref(true)
-const searchTerm = ref('')
-const showDetails = ref(false)
-const selectedNode = ref<any>(null)
-const forceLayout = ref('force')
-
+// State
+const loading = ref(false)
 const chartContainer = ref<HTMLElement | null>(null)
 const chartInstance = shallowRef<echarts.ECharts | null>(null)
+const learningPathModal = ref<HTMLElement | null>(null)
+let bsModal: Modal | null = null
 
-const graphData = ref<{ nodes: any[], links: any[] }>({ nodes: [], links: [] })
+const courses = ref<Course[]>([])
+const selectedCourseId = ref('')
+const layoutMode = ref<'force' | 'circular'>('force')
 
-const loadGraphData = async () => {
-  loading.value = true
-  const nodes: any[] = []
-  const links: any[] = []
+const graphData = ref<GraphData>({ nodes: [], links: [] })
+const selectedNode = ref<GraphNode | null>(null)
+const conceptContext = ref<ConceptContext | null>(null)
+const showDetail = ref(false)
 
-  // Load actual courses
-  const response = await courseStore.fetchAllCourses()
-  const courses = courseStore.courses
+const filterDifficulty = ref('')
+const filterProgress = ref('')
+const filterRelationType = ref('')
+const searchTerm = ref('')
 
-  if (!courses || courses.length === 0) {
-    graphData.value = { nodes, links }
-    loading.value = false
-    initChart()
-    return
-  }
+const highlightPathMode = ref(false)
+const pathNodes = ref<string[]>([])
+const highlightedPathIds = ref<string[]>([])
 
-  // Iterate over courses to construct nodes and edges
-  for (const course of courses) {
-    const courseAny = course as any
-    const cId = courseAny.id
-    
-    // Core Course Node
-    nodes.push({
-      id: cId,
-      title: courseAny.title || courseAny.name || '未知课程标题',
-      type: 'course',
-      difficulty: courseAny.difficultyLevel || 'BEGINNER',
-      description: courseAny.description,
-      courseId: cId
-    })
+const learningPath = ref<any[]>([])
 
-    // Fetch chapters sequentially
-    const chaptersResult = await courseStore.fetchCourseChapters(cId)
-    if (chaptersResult.success && chaptersResult.data) {
-      const chapters = chaptersResult.data
-      chapters.forEach((chap: any, index: number) => {
-        nodes.push({
-          id: chap.id,
-          title: chap.title,
-          type: 'chapter',
-          description: chap.description,
-          chapterType: chap.type,
-          estimatedMinutes: chap.estimatedMinutes,
-          courseId: cId
-        })
+const contextMenu = ref<{ visible: boolean; x: number; y: number; nodeId: string | null }>({
+  visible: false, x: 0, y: 0, nodeId: null
+})
 
-        links.push({
-          source: cId,
-          target: chap.id,
-          type: 'contains'
-        })
-      })
+// Computed
+const statsText = computed(() => {
+  const s = graphData.value.statistics
+  if (!s) return '选择课程以浏览知识图谱'
+  return `${s.totalNodes} 个知识点 · ${s.totalLinks} 条关系 · ${s.completedNodes} 已完成${s.isolatedCount > 0 ? ` · ${s.isolatedCount} 个孤立知识点` : ''}`
+})
+
+// Methods
+async function loadCourses() {
+  try {
+    const res = await courseApi.getAllCourses()
+    if (res.success && res.data) {
+      courses.value = res.data
     }
+  } catch (e) {
+    console.error('Failed to load courses', e)
   }
-
-  graphData.value = { nodes, links }
-  loading.value = false
-  initChart()
 }
 
-const initChart = () => {
+async function loadGraph() {
+  if (!selectedCourseId.value) {
+    graphData.value = { nodes: [], links: [] }
+    return
+  }
+  loading.value = true
+  try {
+    const res = await graphApi.getFullGraph(selectedCourseId.value)
+    if (res.success && res.data) {
+      graphData.value = res.data
+      await nextTick()
+      initChart()
+    }
+  } catch (e) {
+    console.error('Failed to load graph', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+function initChart() {
   if (!chartContainer.value) return
-  
   if (chartInstance.value) {
     chartInstance.value.dispose()
   }
-  
+
   const chart = echarts.init(chartContainer.value)
   chartInstance.value = chart
-  
-  // Apply Search Highlight Mechanism
-  const processedNodes = graphData.value.nodes.map(node => {
-    let color = node.type === 'course' ? '#0d6efd' : '#28a745'
-    
-    // Dim if search text does not match
-    const isMuted = searchTerm.value && !node.title.toLowerCase().includes(searchTerm.value.toLowerCase())
-    
-    return {
-      id: node.id,
-      name: node.title,
-      symbolSize: node.type === 'course' ? 65 : 40,
-      itemStyle: { 
-        color,
-        opacity: isMuted ? 0.2 : 0.9,
-        borderColor: '#fff',
-        borderWidth: node.type === 'course' ? 3 : 2,
-        shadowBlur: isMuted ? 0 : 8,
-        shadowColor: 'rgba(0,0,0,0.15)'
-      },
-      label: {
-        show: node.type === 'course' || (!searchTerm.value || !isMuted),
-        color: isMuted ? '#ccc' : '#333'
-      },
-      ...node
+
+  renderChart(chart)
+
+  chart.on('click', (params: any) => {
+    contextMenu.value.visible = false
+    if (params.dataType === 'node') {
+      handleNodeClick(params.data)
+    } else if (params.dataType === 'edge') {
+      showDetail.value = false
     }
   })
 
-  const processedLinks = graphData.value.links.map(link => {
-    // Check if the link connects to a matching node during search
-    const isSourceMatch = !searchTerm.value || graphData.value.nodes.find(n => n.id === link.source)?.title.toLowerCase().includes(searchTerm.value.toLowerCase());
-    const isTargetMatch = !searchTerm.value || graphData.value.nodes.find(n => n.id === link.target)?.title.toLowerCase().includes(searchTerm.value.toLowerCase());
-    const isMuted = searchTerm.value && !(isSourceMatch || isTargetMatch);
+  chart.on('dblclick', (params: any) => {
+    if (params.dataType === 'node') {
+      contextMenu.value.visible = false
+      loadConceptDetail(params.data.id)
+    }
+  })
 
+  // Right-click context menu
+  chart.getZr().on('contextmenu', (params: any) => {
+    params.event?.preventDefault?.()
+    const point = chart.convertFromPixel({ seriesIndex: 0 }, [params.offsetX, params.offsetY])
+    // Find nearby node
+    let nodeId: string | null = null
+    for (const n of graphData.value.nodes) {
+      const nodePos = chart.convertToPixel({ seriesIndex: 0 }, [n.id])
+      if (nodePos) {
+        const dx = point[0] - nodePos[0]
+        const dy = point[1] - nodePos[1]
+        if (Math.sqrt(dx * dx + dy * dy) < 30) {
+          nodeId = n.id
+          break
+        }
+      }
+    }
+    if (nodeId) {
+      contextMenu.value = { visible: true, x: params.event?.clientX || 0, y: params.event?.clientY || 0, nodeId }
+    }
+  })
+
+  // Click elsewhere to close context menu
+  document.addEventListener('click', () => {
+    contextMenu.value.visible = false
+  })
+}
+
+function renderChart(chart: echarts.ECharts) {
+  const filteredNodes = applyFilters()
+  const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
+  const filteredLinks = graphData.value.links.filter(
+    l => filteredNodeIds.has(l.source) && filteredNodeIds.has(l.target)
+  )
+
+  const echartsNodes = filteredNodes.map(node => {
+    const color = getNodeColor(node)
+    const size = getNodeSize(node)
+    const isHighlighted = highlightedPathIds.value.includes(node.id)
+    const isPathNode = pathNodes.value.includes(node.id)
+
+    return {
+      id: node.id,
+      name: node.name,
+      symbolSize: isHighlighted ? size + 12 : isPathNode ? size + 6 : size,
+      itemStyle: {
+        color,
+        borderColor: isHighlighted ? '#ffc107' : isPathNode ? '#0dcaf0' : getBorderColor(node),
+        borderWidth: isHighlighted ? 4 : isPathNode ? 3 : getBorderWidth(node),
+        shadowBlur: isHighlighted ? 20 : isPathNode ? 12 : 6,
+        shadowColor: isHighlighted ? 'rgba(255,193,7,0.5)' : 'rgba(0,0,0,0.12)'
+      },
+      label: { show: node.importanceWeight >= 50 || isHighlighted, color: '#333', fontSize: 11 },
+      category: node.category,
+      difficultyLevel: node.difficultyLevel,
+      _rawNode: node
+    }
+  })
+
+  const echartsLinks = filteredLinks.map(link => {
+    const isHighlighted = highlightedPathIds.value.includes(link.source) && highlightedPathIds.value.includes(link.target)
     return {
       source: link.source,
       target: link.target,
-      label: {
-        show: false
-      },
       lineStyle: {
-        width: 2,
+        width: isHighlighted ? 4 : 1.5,
         curveness: 0.15,
-        color: '#adb5bd',
-        opacity: isMuted ? 0.1 : 0.7
+        color: isHighlighted ? '#ffc107' : getLinkColor(link),
+        opacity: isHighlighted ? 1 : 0.55
+      },
+      label: {
+        show: isHighlighted,
+        formatter: link.type,
+        fontSize: 10,
+        color: '#666'
       }
     }
   })
-  
-  const option = {
+
+  const option: any = {
     tooltip: {
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      backgroundColor: 'rgba(255, 255, 255, 0.96)',
       borderColor: '#e9ecef',
       textStyle: { color: '#333' },
-      formatter: function (params: any) {
+      formatter: (params: any) => {
         if (params.dataType === 'node') {
+          const n = params.data
+          const statusMap: Record<string, string> = { 'NOT_STARTED': '未开始', 'IN_PROGRESS': '进行中', 'COMPLETED': '已完成', 'MASTERED': '已掌握' }
           return `
-            <div style="font-weight:bold; margin-bottom:5px;">${params.data.name}</div>
-            <div style="font-size:12px; color:#666; max-width: 200px; white-space: normal;">
-              ${params.data.description || '暂无详细描述'}
-            </div>
-            <div style="margin-top:5px; font-size:12px; color:${params.data.type === 'course' ? '#0d6efd' : '#28a745'};">
-              节点类型：${params.data.type === 'course' ? '课程' : '章节'}
+            <div style="font-weight:bold;margin-bottom:4px;">${n.name}</div>
+            <div style="font-size:12px;color:#666;max-width:200px;">${n._rawNode?.description || '暂无描述'}</div>
+            <div style="margin-top:4px;font-size:11px;">
+              难度: Lv.${n.difficultyLevel} | 重要度: ${n._rawNode?.importanceWeight || '-'}/100<br/>
+              状态: ${statusMap[n._rawNode?.progressStatus || 'NOT_STARTED'] || '未开始'}
+              ${n._rawNode?.chapterTitle ? `<br/>章节: ${n._rawNode.chapterTitle}` : ''}
             </div>
           `
+        }
+        if (params.dataType === 'edge') {
+          return `<div style="font-size:12px;">${params.data.label || params.value || '关联'}</div>`
         }
         return ''
       }
     },
-    animationDurationUpdate: 1500,
+    animationDurationUpdate: 800,
     animationEasingUpdate: 'quinticInOut',
-    series: [
-      {
-        type: 'graph',
-        layout: forceLayout.value, // 'force' or 'circular'
-        data: processedNodes,
-        links: processedLinks,
-        roam: true, // Allow zooming and dragging
-        label: {
-          show: true,
-          position: 'right',
-          formatter: '{b}',
-          fontSize: 12,
-          fontWeight: 'bold'
-        },
-        edgeSymbol: ['circle', 'arrow'],
-        edgeSymbolSize: [4, 8],
-        force: {
-          repulsion: 800,
-          edgeLength: [80, 150],
-          gravity: 0.05,
-          layoutAnimation: true
-        },
-        focusNodeAdjacency: true,
-        emphasis: {
-          focus: 'adjacency',
-          lineStyle: {
-            width: 4
-          }
-        }
+    series: [{
+      type: 'graph',
+      layout: layoutMode.value,
+      data: echartsNodes,
+      links: echartsLinks,
+      roam: true,
+      draggable: true,
+      label: {
+        show: true,
+        position: 'right',
+        formatter: '{b}',
+        fontSize: 11,
+        fontWeight: 'bold'
+      },
+      edgeSymbol: ['none', 'arrow'],
+      edgeSymbolSize: [6, 10],
+      force: layoutMode.value === 'force' ? {
+        repulsion: 600,
+        edgeLength: [80, 200],
+        gravity: 0.08,
+        layoutAnimation: true
+      } : undefined,
+      circular: layoutMode.value === 'circular' ? {
+        rotateLabel: true
+      } : undefined,
+      focusNodeAdjacency: true,
+      emphasis: {
+        focus: 'adjacency',
+        lineStyle: { width: 4 },
+        itemStyle: { shadowBlur: 16, shadowColor: 'rgba(0,0,0,0.25)' }
       }
-    ]
+    }]
   }
-  
-  chart.setOption(option)
-  
-  chart.on('click', (params) => {
-    if (params.dataType === 'node') {
-      const node = graphData.value.nodes.find(n => n.id === params.data.id)
-      if (node) {
-        selectedNode.value = node
-        showDetails.value = true
-      }
-    } else {
-      showDetails.value = false
-    }
-  })
-  
-  // Click empty space to close panel
-  chart.getZr().on('click', (event) => {
-    if (!event.target) {
-      showDetails.value = false
-    }
-  })
+
+  chart.setOption(option, true)
 }
 
-let searchTimeout: any;
-const handleSearch = () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    if (chartInstance.value) {
-      initChart()
-    }
-  }, 300)
+function applyFilters(): GraphNode[] {
+  let nodes = [...graphData.value.nodes]
+
+  if (filterDifficulty.value) {
+    nodes = nodes.filter(n => {
+      const [min, max] = filterDifficulty.value.split('-').map(Number)
+      if (max) return n.difficultyLevel >= min && n.difficultyLevel <= max
+      return n.difficultyLevel === min
+    })
+  }
+
+  if (filterProgress.value) {
+    nodes = nodes.filter(n => n.progressStatus === filterProgress.value)
+  }
+
+  if (searchTerm.value) {
+    const kw = searchTerm.value.toLowerCase()
+    nodes = nodes.filter(n => n.name.toLowerCase().includes(kw))
+  }
+
+  return nodes
 }
 
-const resetZoom = () => {
+// Node color by difficulty
+function getNodeColor(node: GraphNode): string {
+  const level = node.difficultyLevel
+  if (level <= 2) return '#28a745'
+  if (level <= 3) return '#17a2b8'
+  if (level <= 4) return '#ffc107'
+  return '#dc3545'
+}
+
+// Node size by importance
+function getNodeSize(node: GraphNode): number {
+  const w = node.importanceWeight
+  if (w >= 80) return 55
+  if (w >= 60) return 40
+  if (w >= 40) return 30
+  return 22
+}
+
+// Border color by progress
+function getBorderColor(node: GraphNode): string {
+  switch (node.progressStatus) {
+    case 'COMPLETED': return '#0d6efd'
+    case 'MASTERED': return '#198754'
+    case 'IN_PROGRESS': return '#fd7e14'
+    default: return '#ced4da'
+  }
+}
+
+function getBorderWidth(node: GraphNode): number {
+  switch (node.progressStatus) {
+    case 'COMPLETED':
+    case 'MASTERED': return 3
+    case 'IN_PROGRESS': return 2
+    default: return 1
+  }
+}
+
+// Link color by type
+function getLinkColor(link: GraphLink): string {
+  switch (link.type) {
+    case 'PREREQUISITE': return '#0d6efd'
+    case 'DEPENDS_ON': return '#6f42c1'
+    case 'SIMILAR_TO': return '#20c997'
+    case 'PART_OF': return '#adb5bd'
+    case 'USES': return '#fd7e14'
+    default: return '#adb5bd'
+  }
+}
+
+// Node click
+async function handleNodeClick(nodeData: any) {
+  const node = graphData.value.nodes.find(n => n.id === nodeData.id)
+  if (!node) return
+
+  if (highlightPathMode.value) {
+    if (pathNodes.value.includes(node.id)) {
+      pathNodes.value = pathNodes.value.filter(id => id !== node.id)
+    } else if (pathNodes.value.length < 2) {
+      pathNodes.value.push(node.id)
+    }
+    if (pathNodes.value.length === 2) {
+      await queryShortestPath(pathNodes.value[0], pathNodes.value[1])
+    }
+    renderChart(chartInstance.value!)
+  } else {
+    selectedNode.value = node
+    showDetail.value = true
+    await loadConceptDetail(node.id)
+  }
+}
+
+async function loadConceptDetail(conceptId: string) {
+  try {
+    const res = await graphApi.getConceptDetail(conceptId)
+    if (res.success && res.data) {
+      conceptContext.value = res.data
+    }
+  } catch (e) {
+    console.error('Failed to load concept detail', e)
+  }
+}
+
+async function queryShortestPath(from: string, to: string) {
+  try {
+    const res = await graphApi.getShortestPath(from, to)
+    if (res.success && res.data) {
+      highlightedPathIds.value = res.data
+    }
+  } catch (e) {
+    console.error('Failed to query shortest path', e)
+  }
+}
+
+function setLayout(mode: 'force' | 'circular') {
+  layoutMode.value = mode
+  if (chartInstance.value) renderChart(chartInstance.value)
+}
+
+function resetView() {
   searchTerm.value = ''
+  filterDifficulty.value = ''
+  filterProgress.value = ''
+  pathNodes.value = []
+  highlightedPathIds.value = []
+  highlightPathMode.value = false
+  showDetail.value = false
+  if (chartInstance.value) renderChart(chartInstance.value)
+}
+
+function resetAll() {
+  resetView()
   if (chartInstance.value) {
-    initChart()
+    chartInstance.value.dispatchAction({ type: 'restore' })
   }
 }
 
-const toggleLayout = () => {
-  forceLayout.value = forceLayout.value === 'force' ? 'circular' : 'force'
-  if (chartInstance.value) {
-    initChart()
+async function showLearningPath() {
+  if (!selectedCourseId.value) return
+  try {
+    const res = await graphApi.getLearningPath(selectedCourseId.value)
+    if (res.success && res.data) {
+      learningPath.value = res.data.map((item: any) => ({
+        ...item,
+        _progressStatus: graphData.value.nodes.find(n => n.id === item.id)?.progressStatus || 'NOT_STARTED'
+      }))
+      if (!bsModal && learningPathModal.value) {
+        bsModal = new Modal(learningPathModal.value)
+      }
+      bsModal?.show()
+    }
+  } catch (e) {
+    console.error('Failed to load learning path', e)
   }
 }
 
-const closeDetails = () => {
-  showDetails.value = false
+function highlightLearningPathOnGraph() {
+  highlightedPathIds.value = learningPath.value.map((item: any) => item.id)
+  bsModal?.hide()
+  if (chartInstance.value) renderChart(chartInstance.value)
 }
 
-const handleResize = () => {
-  if (chartInstance.value) {
-    chartInstance.value.resize()
+function navigateToConcept(conceptId: string) {
+  const node = graphData.value.nodes.find(n => n.id === conceptId)
+  if (node) {
+    selectedNode.value = node
+    loadConceptDetail(conceptId)
+    // Optionally focus the graph on this node
+    if (chartInstance.value) {
+      chartInstance.value.dispatchAction({ type: 'highlight', seriesIndex: 0, dataIndex: -1 })
+    }
   }
+}
+
+async function onProgressChange(conceptId: string, status: string) {
+  const node = graphData.value.nodes.find(n => n.id === conceptId)
+  if (!node || !node.chapterId) return
+  try {
+    const completed = status === 'COMPLETED' || status === 'MASTERED'
+    await chapterApi.updateProgress(node.chapterId, { completed, elapsedMinutes: 30 })
+    await loadGraph()
+  } catch (e) {
+    console.error('Failed to update progress', e)
+  }
+}
+
+// Context menu actions
+function onContextMarkMastered() {
+  const nodeId = contextMenu.value.nodeId
+  if (nodeId) {
+    onProgressChange(nodeId, 'MASTERED')
+  }
+  contextMenu.value.visible = false
+}
+
+function onContextSetTarget() {
+  const nodeId = contextMenu.value.nodeId
+  if (nodeId && highlightPathMode.value) {
+    if (!pathNodes.value.includes(nodeId)) {
+      if (pathNodes.value.length < 2) {
+        pathNodes.value.push(nodeId)
+      }
+    }
+    if (pathNodes.value.length === 2) {
+      queryShortestPath(pathNodes.value[0], pathNodes.value[1])
+    }
+    renderChart(chartInstance.value!)
+  } else if (nodeId) {
+    loadConceptDetail(nodeId)
+    const node = graphData.value.nodes.find(n => n.id === nodeId)
+    if (node) {
+      selectedNode.value = node
+      showDetail.value = true
+    }
+  }
+  contextMenu.value.visible = false
+}
+
+function onContextShowPrereqs() {
+  const nodeId = contextMenu.value.nodeId
+  if (nodeId) {
+    graphApi.getPrerequisites(nodeId).then(res => {
+      if (res.success && res.data) {
+        highlightedPathIds.value = [nodeId, ...res.data.map((p: any) => p.id)]
+        renderChart(chartInstance.value!)
+      }
+    })
+  }
+  contextMenu.value.visible = false
+}
+
+function handleResize() {
+  chartInstance.value?.resize()
 }
 
 onMounted(async () => {
-  await loadGraphData()
-  nextTick(() => {
-    window.addEventListener('resize', handleResize)
-  })
+  await loadCourses()
+  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   chartInstance.value?.dispose()
+  bsModal?.dispose()
 })
 </script>
 
 <style scoped>
-.graph-node {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: inline-block;
+.context-menu {
+  min-width: 180px;
+  animation: fadeIn 0.15s ease-out;
 }
-
-.node-details-panel {
-  position: fixed;
-  top: 80px;
-  right: -320px; /* Initially hidden */
-  width: 320px;
-  height: calc(100vh - 120px);
-  z-index: 1050;
-  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.node-details-panel.show-panel {
-  right: 20px;
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 </style>

@@ -124,6 +124,202 @@
       </div>
     </div>
 
+    <!-- Concept & Relationship Management -->
+    <div v-if="editingId" class="card mb-4 border-success">
+      <div class="card-header bg-success-subtle">
+        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+          <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#conceptTab" type="button">
+              <i class="bi bi-diagram-3 me-1"></i>知识点管理
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#relationTab" type="button">
+              <i class="bi bi-arrow-left-right me-1"></i>关系管理
+            </button>
+          </li>
+        </ul>
+      </div>
+      <div class="card-body tab-content">
+        <!-- Concepts Tab -->
+        <div class="tab-pane fade show active" id="conceptTab">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted small">共 {{ allConcepts.length }} 个知识点</span>
+            <button class="btn btn-success btn-sm" @click="openConceptModal()">
+              <i class="bi bi-plus-lg me-1"></i>添加知识点
+            </button>
+          </div>
+          <div v-if="loadingConcepts" class="text-center py-3">
+            <div class="spinner-border spinner-border-sm text-success"></div>
+          </div>
+          <div v-else-if="allConcepts.length === 0" class="text-center py-3 text-muted small">
+            暂无知识点，请添加
+          </div>
+          <div v-else class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>名称</th>
+                  <th>所属章节</th>
+                  <th>难度</th>
+                  <th>重要度</th>
+                  <th class="text-end">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="c in allConcepts" :key="c.id">
+                  <td class="fw-bold">{{ c.name }}</td>
+                  <td><span class="badge bg-light text-dark">{{ getChapterTitle(c.chapterId || c.chapter?.id) }}</span></td>
+                  <td>
+                    <span class="badge" :class="c.difficultyLevel <= 2 ? 'bg-success' : c.difficultyLevel <= 4 ? 'bg-warning text-dark' : 'bg-danger'">
+                      Lv.{{ c.difficultyLevel }}
+                    </span>
+                  </td>
+                  <td>{{ c.importanceWeight }}/100</td>
+                  <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                      <button class="btn btn-outline-primary" @click="openConceptModal(c)">编辑</button>
+                      <button class="btn btn-outline-danger" @click="handleDeleteConcept(c.id)">删除</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <!-- Relations Tab -->
+        <div class="tab-pane fade" id="relationTab">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted small">共 {{ allRelationships.length }} 条关系</span>
+            <button class="btn btn-success btn-sm" @click="openRelationModal()">
+              <i class="bi bi-plus-lg me-1"></i>添加关系
+            </button>
+          </div>
+          <div v-if="loadingRels" class="text-center py-3">
+            <div class="spinner-border spinner-border-sm text-success"></div>
+          </div>
+          <div v-else-if="allRelationships.length === 0" class="text-center py-3 text-muted small">
+            暂无关系，请先创建知识点再添加关系
+          </div>
+          <div v-else class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>源知识点</th>
+                  <th>关系类型</th>
+                  <th>目标知识点</th>
+                  <th>权重</th>
+                  <th class="text-end">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in allRelationships" :key="r.id">
+                  <td>{{ getConceptName(r.fromConcept?.id || r.fromConceptId) }}</td>
+                  <td><span class="badge" :class="relTypeBadge(r.type || r.relationshipType)">{{ relTypeLabel(r.type || r.relationshipType) }}</span></td>
+                  <td>{{ getConceptName(r.toConcept?.id || r.toConceptId) }}</td>
+                  <td>{{ r.weight }}</td>
+                  <td class="text-end">
+                    <button class="btn btn-sm btn-outline-danger" @click="handleDeleteRelation(r.id)">删除</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Concept Modal -->
+    <div v-if="conceptModalOpen" class="modal-overlay">
+      <div class="modal-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">{{ editingConcept?.id ? '编辑知识点' : '添加知识点' }}</h5>
+          <button type="button" class="btn-close" @click="conceptModalOpen = false"></button>
+        </div>
+        <form @submit.prevent="handleConceptSubmit">
+          <div class="mb-3">
+            <label class="form-label">知识点名称</label>
+            <input v-model="conceptForm.name" type="text" class="form-control" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">所属章节</label>
+            <select v-model="conceptForm.chapterId" class="form-select" required>
+              <option value="">-- 选择章节 --</option>
+              <option v-for="ch in chapters" :key="ch.id" :value="ch.id">{{ ch.title }} (序号: {{ ch.orderIndex }})</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">描述</label>
+            <textarea v-model="conceptForm.description" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">难度 (1-5)</label>
+              <input v-model.number="conceptForm.difficultyLevel" type="number" min="1" max="5" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">重要度 (0-100)</label>
+              <input v-model.number="conceptForm.importanceWeight" type="number" min="0" max="100" class="form-control" />
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-outline-secondary" @click="conceptModalOpen = false">取消</button>
+            <button type="submit" class="btn btn-success">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Relation Modal -->
+    <div v-if="relationModalOpen" class="modal-overlay">
+      <div class="modal-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">添加知识点关系</h5>
+          <button type="button" class="btn-close" @click="relationModalOpen = false"></button>
+        </div>
+        <form @submit.prevent="handleRelationSubmit">
+          <div class="mb-3">
+            <label class="form-label">源知识点</label>
+            <select v-model="relationForm.fromConceptId" class="form-select" required>
+              <option value="">-- 选择 --</option>
+              <option v-for="c in allConcepts" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">关系类型</label>
+            <select v-model="relationForm.type" class="form-select" required>
+              <option value="PREREQUISITE">先修关系</option>
+              <option value="DEPENDS_ON">依赖关系</option>
+              <option value="USES">使用关系</option>
+              <option value="SIMILAR_TO">相似关系</option>
+              <option value="PART_OF">包含关系</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">目标知识点</label>
+            <select v-model="relationForm.toConceptId" class="form-select" required>
+              <option value="">-- 选择 --</option>
+              <option v-for="c in allConcepts" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">权重 (0-1)</label>
+              <input v-model.number="relationForm.weight" type="number" min="0" max="1" step="0.1" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">描述</label>
+              <input v-model="relationForm.description" type="text" class="form-control" placeholder="可选" />
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-outline-secondary" @click="relationModalOpen = false">取消</button>
+            <button type="submit" class="btn btn-success">创建关系</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
@@ -238,6 +434,7 @@
 import { reactive, ref, onMounted } from 'vue'
 import { useCourseStore } from '@/stores/course'
 import { chapterApi } from '@/services/api/chapter'
+import http from '@/services/http'
 import type { Course, CoursePayload, Chapter } from '@/types'
 
 const courseStore = useCourseStore()
@@ -269,6 +466,137 @@ const chapterForm = reactive({
   estimatedMinutes: 30,
   orderIndex: 1
 })
+
+// Concept state
+const allConcepts = ref<any[]>([])
+const loadingConcepts = ref(false)
+const conceptModalOpen = ref(false)
+const editingConcept = ref<any | null>(null)
+const conceptForm = reactive({ name: '', description: '', chapterId: '', difficultyLevel: 1, importanceWeight: 50, courseId: '' })
+
+// Relation state
+const allRelationships = ref<any[]>([])
+const loadingRels = ref(false)
+const relationModalOpen = ref(false)
+const relationForm = reactive({ fromConceptId: '', toConceptId: '', type: 'PREREQUISITE', weight: 0.8, description: '' })
+
+async function loadConceptsAndRels(courseId: string) {
+  loadingConcepts.value = true
+  loadingRels.value = true
+  try {
+    const [cRes, rRes] = await Promise.all([
+      http.get(`/courses/${courseId}/concepts`),
+      http.get(`/courses/${courseId}/relationships`)
+    ])
+    if ((cRes as any).success) allConcepts.value = (cRes as any).data || []
+    if ((rRes as any).success) allRelationships.value = (rRes as any).data || []
+  } catch (e) { console.error(e) }
+  loadingConcepts.value = false
+  loadingRels.value = false
+}
+
+function getChapterTitle(chapterId: string): string {
+  const ch = chapters.value.find((c: any) => c.id === chapterId)
+  return ch?.title || chapterId?.slice(-6) || '-'
+}
+
+function getConceptName(conceptId: string): string {
+  if (!conceptId) return '-'
+  const c = allConcepts.value.find((x: any) => x.id === conceptId)
+  return c?.name || conceptId.slice(-6)
+}
+
+function openConceptModal(concept?: any) {
+  if (concept) {
+    editingConcept.value = concept
+    conceptForm.name = concept.name
+    conceptForm.description = concept.description || ''
+    conceptForm.chapterId = concept.chapter?.id || concept.chapterId || ''
+    conceptForm.difficultyLevel = concept.difficultyLevel || 1
+    conceptForm.importanceWeight = concept.importanceWeight || 50
+  } else {
+    editingConcept.value = null
+    conceptForm.name = ''
+    conceptForm.description = ''
+    conceptForm.chapterId = ''
+    conceptForm.difficultyLevel = 1
+    conceptForm.importanceWeight = 50
+  }
+  conceptForm.courseId = editingId.value || ''
+  conceptModalOpen.value = true
+}
+
+async function handleConceptSubmit() {
+  if (!editingId.value) return
+  try {
+    let res
+    if (editingConcept.value?.id) {
+      res = await http.put(`/concepts/${editingConcept.value.id}`, {
+        name: conceptForm.name, description: conceptForm.description,
+        difficultyLevel: conceptForm.difficultyLevel, importanceWeight: conceptForm.importanceWeight
+      })
+    } else {
+      res = await http.post('/concepts', {
+        ...conceptForm, courseId: editingId.value
+      })
+    }
+    if ((res as any).success) {
+      showMessage('知识点已保存', 'alert-success')
+      conceptModalOpen.value = false
+      await loadConceptsAndRels(editingId.value)
+    } else {
+      showMessage((res as any).message || '保存失败', 'alert-danger')
+    }
+  } catch (e) { console.error(e) }
+}
+
+async function handleDeleteConcept(id: string) {
+  if (!window.confirm('确定删除该知识点？相关关系也会受影响。')) return
+  const res = await http.delete(`/concepts/${id}`)
+  if ((res as any).success && editingId.value) {
+    await loadConceptsAndRels(editingId.value)
+  }
+}
+
+function openRelationModal() {
+  relationForm.fromConceptId = ''
+  relationForm.toConceptId = ''
+  relationForm.type = 'PREREQUISITE'
+  relationForm.weight = 0.8
+  relationForm.description = ''
+  relationModalOpen.value = true
+}
+
+async function handleRelationSubmit() {
+  try {
+    const res = await http.post('/relationships', { ...relationForm })
+    if ((res as any).success) {
+      showMessage('关系已创建', 'alert-success')
+      relationModalOpen.value = false
+      if (editingId.value) await loadConceptsAndRels(editingId.value)
+    } else {
+      showMessage((res as any).message || '创建失败', 'alert-danger')
+    }
+  } catch (e) { console.error(e) }
+}
+
+async function handleDeleteRelation(id: string) {
+  if (!window.confirm('确定删除该关系？')) return
+  const res = await http.delete(`/relationships/${id}`)
+  if ((res as any).success && editingId.value) {
+    await loadConceptsAndRels(editingId.value)
+  }
+}
+
+function relTypeLabel(type: string): string {
+  const map: Record<string, string> = { PREREQUISITE: '先修', DEPENDS_ON: '依赖', USES: '使用', SIMILAR_TO: '相似', PART_OF: '包含' }
+  return map[type] || type
+}
+
+function relTypeBadge(type: string): string {
+  const map: Record<string, string> = { PREREQUISITE: 'bg-primary', DEPENDS_ON: 'bg-purple', USES: 'bg-warning text-dark', SIMILAR_TO: 'bg-info', PART_OF: 'bg-secondary' }
+  return map[type] || 'bg-light text-dark'
+}
 
 const message = reactive<{ text: string; type: string }>({
   text: '',

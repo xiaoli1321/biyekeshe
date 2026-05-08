@@ -10,6 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.util.ArrayList;
 
 /**
  * 关系业务服务
@@ -103,15 +106,19 @@ public class RelationshipService {
     }
 
     /**
-     * 查找课程的所有关系
+     * 查找课程的所有关系（逐个查询确保 DBRef 兼容性）
      */
     public List<Relationship> getRelationshipsByCourse(String courseId) {
         List<Concept> concepts = conceptRepository.findByCourse_Id(courseId);
         if (concepts == null || concepts.isEmpty()) {
             return java.util.Collections.emptyList();
         }
-        List<String> conceptIds = concepts.stream().map(Concept::getId).toList();
-        return relationshipRepository.findByFromConcept_IdInOrToConcept_IdIn(conceptIds, conceptIds);
+        Set<Relationship> allRels = new LinkedHashSet<>();
+        for (Concept c : concepts) {
+            allRels.addAll(relationshipRepository.findByFromConcept_Id(c.getId()));
+            allRels.addAll(relationshipRepository.findByToConcept_Id(c.getId()));
+        }
+        return new ArrayList<>(allRels);
     }
 
     /**

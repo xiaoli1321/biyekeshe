@@ -63,9 +63,10 @@ public interface RelationshipRepository extends MongoRepository<Relationship, St
     long countByToConcept_Id(String conceptId);
 
     /**
-     * 查找课程的所有关系
+     * 查找课程的所有关系（修复 DBRef 查询）
      */
-    List<Relationship> findByFromConcept_IdInOrToConcept_IdIn(List<String> fromConceptIds, List<String> toConceptIds);
+    @Query("{ '$or': [ { 'fromConcept.$id': { $in: ?0 } }, { 'toConcept.$id': { $in: ?0 } } ] }")
+    List<Relationship> findByFromConcept_IdInOrToConcept_IdIn(List<String> conceptIds);
 
     /**
      * 按关系类型排序的关系查询
