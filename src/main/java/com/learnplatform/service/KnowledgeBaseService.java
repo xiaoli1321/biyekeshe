@@ -54,10 +54,18 @@ public class KnowledgeBaseService {
         try {
             // 2. 解析文本
             String fullText = parserService.extractText(file);
+            if (fullText == null || fullText.trim().isEmpty()) {
+                log.warn("Extracted text is empty for file: {}", filename);
+                throw new RuntimeException("未能从文件中提取到有效文本内容，请检查文件是否为扫描件或加密文档");
+            }
             log.info("Extracted text length: {}", fullText.length());
 
             // 3. 分块
             List<String> textChunks = parserService.chunkText(fullText);
+            if (textChunks.isEmpty()) {
+                log.warn("No chunks generated for file: {}", filename);
+                throw new RuntimeException("文档分块失败，内容可能过短或格式不正确");
+            }
             log.info("Split into {} chunks", textChunks.size());
 
             // 4. 对每个分块进行向量化并保存
@@ -86,12 +94,13 @@ public class KnowledgeBaseService {
 
             // 5. 更新文档状态
             doc.setStatus("READY");
-        } catch (Exception e) {
-            log.error("Failed to process upload: {}", e.getMessage(), e);
-            doc.setStatus("ERROR");
-            throw e;
-        } finally {
             documentRepository.save(doc);
+        } catch (Exception e) {
+            log.error("Failed to process upload [{}]: {}", filename, e.getMessage(), e);
+            doc.setStatus("ERROR");
+            // 重新保存状态
+            documentRepository.save(doc);
+            throw e;
         }
 
         return doc;

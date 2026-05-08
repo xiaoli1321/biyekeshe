@@ -5,6 +5,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,6 +16,8 @@ import java.util.List;
 
 @Service
 public class DocumentParserService {
+
+    private static final Logger log = LoggerFactory.getLogger(DocumentParserService.class);
 
     // 分割块最大长度和重叠度
     private static final int MAX_CHUNK_LENGTH = 500;
@@ -29,22 +33,39 @@ public class DocumentParserService {
         String text = "";
         try (InputStream is = file.getInputStream()) {
             if (filename.toLowerCase().endsWith(".pdf")) {
+                log.info("Extracting text from PDF: {}", filename);
                 // PDFBox 3.0.x uses Loader.loadPDF
                 try (PDDocument document = Loader.loadPDF(is.readAllBytes())) {
                     PDFTextStripper stripper = new PDFTextStripper();
                     text = stripper.getText(document);
                 }
             } else if (filename.toLowerCase().endsWith(".docx")) {
+                log.info("Extracting text from DOCX: {}", filename);
                 try (XWPFDocument document = new XWPFDocument(is);
                      XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
                     text = extractor.getText();
                 }
             } else if (filename.toLowerCase().endsWith(".txt")) {
-                text = new String(is.readAllBytes(), "UTF-8");
+                log.info("Extracting text from TXT: {}", filename);
+                byte[] bytes = is.readAllBytes();
+                // 尝试检测是否为 UTF-8，如果不是则尝试 GBK (常见于中文 Windows)
+                try {
+                    text = new String(bytes, "UTF-8");
+                    // 简单启发式：如果包含非法字符或全是乱码，可以进一步处理，这里简单处理
+                } catch (Exception e) {
+                    text = new String(bytes, "GBK");
+                }
             } else {
                 throw new IllegalArgumentException("Unsupported file type: " + filename);
             }
         }
+
+        if (text == null || text.trim().isEmpty()) {
+            log.warn("Extracted text is empty or null for file: {}", filename);
+        } else {
+            log.info("Successfully extracted {} characters from {}", text.length(), filename);
+        }
+
         return text;
     }
 
@@ -62,7 +83,7 @@ public class DocumentParserService {
         List<String> finalChunks = new ArrayList<>();
         // 按段落切分：\n 或 \r\n
         String[] paragraphs = fullText.split("\\r?\\n");
-        
+
         StringBuilder currentBuffer = new StringBuilder();
 
         for (String paragraph : paragraphs) {

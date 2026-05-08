@@ -271,7 +271,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import { kbApi, type KbDocument, type KbCollection, type KbChunk } from '@/services/api/kb';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -303,9 +303,35 @@ const activeCollectionName = computed(() => {
   return collections.value.find(c => c.id === activeCollectionId.value)?.name || '';
 });
 
+let pollTimer: any = null;
+
 onMounted(async () => {
   await loadCollections();
+  startPolling();
 });
+
+// 在组件卸载时清理定时器
+onUnmounted(() => {
+  stopPolling();
+});
+
+const startPolling = () => {
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    // 如果有文档正在解析中，则自动刷新列表
+    const hasParsing = documents.value.some(doc => doc.status === 'PARSING');
+    if (hasParsing) {
+      loadDocuments();
+    }
+  }, 3000); // 每 3 秒检查一次
+};
+
+const stopPolling = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+};
 
 const loadCollections = async () => {
   try {
