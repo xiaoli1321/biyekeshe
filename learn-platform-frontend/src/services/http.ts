@@ -1,7 +1,8 @@
 import axios from 'axios'
+import type { AxiosRequestConfig } from 'axios'
 
 // 创建 axios 实例
-const http = axios.create({
+const instance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 10000,
   headers: {
@@ -10,7 +11,7 @@ const http = axios.create({
 })
 
 // 请求拦截器 - 添加JWT Token
-http.interceptors.request.use(
+instance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
     if (token) {
@@ -24,7 +25,7 @@ http.interceptors.request.use(
 )
 
 // 响应拦截器 - 处理错误
-http.interceptors.response.use(
+instance.interceptors.response.use(
   (response) => {
     // 直接返回响应数据
     return response.data
@@ -46,5 +47,21 @@ http.interceptors.response.use(
     return Promise.reject(error.response?.data || error.message)
   }
 )
+
+type HttpClient = {
+  get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T>
+  post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>
+  put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>
+  delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T>
+  patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>
+}
+
+const http: HttpClient = {
+  get: <T = unknown>(url: string, config?: AxiosRequestConfig) => instance.get(url, config) as Promise<T>,
+  post: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) => instance.post(url, data, config) as Promise<T>,
+  put: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) => instance.put(url, data, config) as Promise<T>,
+  delete: <T = unknown>(url: string, config?: AxiosRequestConfig) => instance.delete(url, config) as Promise<T>,
+  patch: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) => instance.patch(url, data, config) as Promise<T>
+}
 
 export default http

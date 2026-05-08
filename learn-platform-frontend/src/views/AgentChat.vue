@@ -108,7 +108,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { agentApi, Agent, Conversation, Message } from '@/services/api/agent'
 import { useAgentStore } from '@/stores/agent'
 import WorkflowGraph from '@/components/workflow/WorkflowGraph.vue'
@@ -116,7 +116,6 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
 const route = useRoute()
-const router = useRouter()
 const agentStore = useAgentStore()
 const agentId = computed(() => route.params.agentId as string)
 
@@ -187,7 +186,7 @@ const fetchAgent = async () => {
 const fetchConversations = async () => {
   try {
     const response = await agentApi.getConversations(agentId.value)
-    conversations.value = response as any
+    conversations.value = response
     if (conversations.value.length > 0 && !currentConvId.value) {
       selectConversation(conversations.value[0].id)
     }
@@ -210,7 +209,7 @@ const selectConversation = async (id: string) => {
 const startNewChat = async () => {
   try {
     const response = await agentApi.startConversation(agentId.value, '新对话')
-    conversations.value.unshift(response as any)
+    conversations.value.unshift(response)
     await selectConversation(response.id)
     return response.id
   } catch (err) {

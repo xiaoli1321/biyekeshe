@@ -59,7 +59,6 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { useWorkflowStore } from '@/stores/workflow'
 
 interface WorkflowStep {
   id: string
@@ -81,7 +80,6 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
-const workflowStore = useWorkflowStore()
 
 const cleanTitle = (title?: string) => {
   if (!title) return '未命名步骤'

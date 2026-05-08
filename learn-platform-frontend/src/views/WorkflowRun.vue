@@ -471,7 +471,7 @@
 </style>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { Modal } from 'bootstrap'
@@ -675,7 +675,7 @@ const onDragStart = (e: DragEvent, idx: number) => {
   }
 }
 
-const onDragEnter = (e: DragEvent, idx: number) => {
+const onDragEnter = (_event: DragEvent, idx: number) => {
   if (draggedIndex.value === null || draggedIndex.value === idx) return
   if (selectedTemplateId.value !== 'custom') return
 
@@ -694,7 +694,7 @@ const onDragEnter = (e: DragEvent, idx: number) => {
   draggedIndex.value = idx
 }
 
-const onDrop = (e: DragEvent, idx: number) => {
+const onDrop = (_event: DragEvent, _idx: number) => {
   draggedIndex.value = null
 }
 

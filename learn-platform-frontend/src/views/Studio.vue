@@ -133,16 +133,6 @@ const formatDateShort = (date: string) => {
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
 }
 
-const toggleAgentStatus = async (agent: Agent) => {
-  try {
-    const newStatus = !agent.enabled
-    await agentApi.updateAgent(agent.id, { enabled: newStatus })
-    agent.enabled = newStatus
-  } catch (error) {
-    console.error('Update status failed', error)
-  }
-}
-
 const createNewAgent = () => router.push('/studio/new')
 const editAgent = (id: string) => router.push(`/studio/${id}`)
 const goToChat = (id: string) => router.push(`/chat/${id}`)
