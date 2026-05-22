@@ -3,6 +3,10 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 export interface AiChatParams {
   chapterId: string
   message: string
+  history?: Array<{
+    role: 'user' | 'assistant'
+    content: string
+  }>
 }
 
 export type AiStreamHandler = (token: string) => void

@@ -182,7 +182,12 @@
     </div>
 
     <!-- AI Study Buddy -->
-    <AiSidekick v-if="chapter" :chapterId="chapter.id" />
+    <AiSidekick
+      v-if="chapter"
+      :chapterId="chapter.id"
+      :chapterTitle="chapter.title"
+      :courseTitle="courseTitle"
+    />
   </div>
 </template>
 

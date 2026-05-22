@@ -8,16 +8,33 @@
     <!-- Chat Window -->
     <div v-if="expanded" class="card shadow ai-window">
       <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <h6 class="mb-0">
-          <i class="bi bi-robot me-2"></i>
-          学习助手
-        </h6>
+        <div>
+          <h6 class="mb-0">
+            <i class="bi bi-robot me-2"></i>
+            学习助手
+          </h6>
+          <div class="header-subtitle">{{ props.chapterTitle || '当前章节问答' }}</div>
+        </div>
         <button class="btn btn-close btn-close-white" @click="expanded = false"></button>
       </div>
 
       <div class="card-body chat-body" ref="chatBody">
         <div v-if="messages.length === 0" class="text-center text-muted mt-5">
-          <p>我是您的 AI 学习助手。针对本章内容有任何疑问，尽管问我吧！</p>
+          <p class="mb-2">我是您的 AI 学习助手，已经接入当前章节内容。</p>
+          <p class="small mb-0">你可以直接追问概念、例子、难点，也可以让我帮你总结本章重点。</p>
+        </div>
+
+        <div v-if="quickPrompts.length > 0 && messages.length === 0" class="quick-prompts">
+          <button
+            v-for="prompt in quickPrompts"
+            :key="prompt"
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            @click="sendPreset(prompt)"
+            :disabled="streaming"
+          >
+            {{ prompt }}
+          </button>
         </div>
         
         <div v-for="(msg, index) in messages" :key="index" :class="['message', msg.role]">
@@ -59,6 +76,8 @@ import { aiApi } from '@/services/api/ai'
 
 const props = defineProps<{
   chapterId: string
+  chapterTitle?: string
+  courseTitle?: string
 }>()
 
 const expanded = ref(false)
@@ -74,6 +93,13 @@ interface Message {
 
 const messages = ref<Message[]>([])
 
+const quickPrompts = [
+  '请总结本章重点',
+  '这一章最容易错的地方是什么？',
+  '请给我一个贴近本章内容的例子',
+  '把这章内容转成 3 道练习题'
+]
+
 const scrollToBottom = async () => {
   await nextTick()
   if (chatBody.value) {
@@ -83,6 +109,43 @@ const scrollToBottom = async () => {
 
 watch(messages, scrollToBottom, { deep: true })
 watch(currentStream, scrollToBottom)
+watch(
+  messages,
+  (value) => {
+    sessionStorage.setItem(`ai-sidekick:${props.chapterId}`, JSON.stringify(value))
+  },
+  { deep: true }
+)
+
+const restoreHistory = () => {
+  const raw = sessionStorage.getItem(`ai-sidekick:${props.chapterId}`)
+  if (!raw) return
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) {
+      messages.value = parsed.filter(item => item?.role && item?.content)
+    }
+  } catch (error) {
+    console.warn('恢复章节问答历史失败', error)
+  }
+}
+
+restoreHistory()
+
+watch(
+  () => props.chapterId,
+  () => {
+    messages.value = []
+    currentStream.value = ''
+    restoreHistory()
+  }
+)
+
+const buildHistoryPayload = () =>
+  messages.value.slice(-6).map(message => ({
+    role: message.role === 'ai' ? 'assistant' : 'user',
+    content: message.content
+  }))
 
 const sendMessage = async () => {
   if (!userInput.value.trim() || streaming.value) return
@@ -96,7 +159,11 @@ const sendMessage = async () => {
 
   try {
     await aiApi.fetchAiChatStream(
-      { chapterId: props.chapterId, message: question },
+      {
+        chapterId: props.chapterId,
+        message: question,
+        history: buildHistoryPayload()
+      },
       (token) => {
         currentStream.value += token
       },
@@ -110,6 +177,12 @@ const sendMessage = async () => {
     messages.value.push({ role: 'ai', content: '抱歉，我现在遇到了一点问题，请稍后再试。' })
     streaming.value = false
   }
+}
+
+const sendPreset = (prompt: string) => {
+  if (streaming.value) return
+  userInput.value = prompt
+  void sendMessage()
 }
 </script>
 
@@ -153,6 +226,19 @@ const sendMessage = async () => {
 .message {
   margin-bottom: 1rem;
   display: flex;
+}
+
+.header-subtitle {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  opacity: 0.9;
+}
+
+.quick-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .message.user {
