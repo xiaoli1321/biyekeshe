@@ -2,6 +2,7 @@ package com.learnplatform.service;
 
 import com.learnplatform.entity.Course;
 import com.learnplatform.repository.CourseRepository;
+import com.learnplatform.repository.ProgressRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +21,18 @@ public class CourseService {
 
     @Autowired
     private CourseRepository courseRepository;
+
+    @Autowired
+    private ChapterService chapterService;
+
+    @Autowired
+    private ConceptService conceptService;
+
+    @Autowired
+    private ProgressRepository progressRepository;
+
+    @Autowired
+    private ConceptProgressService conceptProgressService;
 
     /**
      * 创建课程
@@ -111,6 +124,10 @@ public class CourseService {
      * 删除课程
      */
     public void deleteCourse(String id) {
+        chapterService.deleteChaptersByCourse(id);
+        conceptService.deleteConceptsByCourse(id);
+        progressRepository.deleteByCourse_Id(id);
+        conceptProgressService.deleteByCourseId(id);
         courseRepository.deleteById(id);
     }
 

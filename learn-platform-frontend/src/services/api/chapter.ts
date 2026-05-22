@@ -4,6 +4,7 @@ import type { Chapter, ApiResponse, ChapterProgress } from '@/types'
 export interface ChapterProgressPayload {
   completed: boolean
   elapsedMinutes: number
+  status?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'MASTERED'
 }
 
 export interface ChapterPayload {

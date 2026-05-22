@@ -36,6 +36,18 @@ public class Concept {
 
     private String description;
 
+    // 一句话定义
+    private String summary;
+
+    // 详细讲解内容
+    private String content;
+
+    // 示例
+    private String example;
+
+    // 常见误区/注意点
+    private String commonPitfall;
+
     // 难度等级（1-5）
     private Integer difficultyLevel = 1;
 
@@ -104,6 +116,38 @@ public class Concept {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getSummary() {
+        return summary;
+    }
+
+    public void setSummary(String summary) {
+        this.summary = summary;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public String getExample() {
+        return example;
+    }
+
+    public void setExample(String example) {
+        this.example = example;
+    }
+
+    public String getCommonPitfall() {
+        return commonPitfall;
+    }
+
+    public void setCommonPitfall(String commonPitfall) {
+        this.commonPitfall = commonPitfall;
     }
 
     public Integer getDifficultyLevel() {

@@ -42,6 +42,10 @@ public interface ProgressRepository extends MongoRepository<Progress, String> {
      */
     Progress findByUser_IdAndChapter_Id(String userId, String chapterId);
 
+    void deleteByCourse_Id(String courseId);
+
+    void deleteByChapter_Id(String chapterId);
+
     /**
      * 根据用户和状态查找进度
      */

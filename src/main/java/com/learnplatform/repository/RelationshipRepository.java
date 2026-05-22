@@ -77,4 +77,6 @@ public interface RelationshipRepository extends MongoRepository<Relationship, St
      * 查找高权重的关系
      */
     List<Relationship> findByWeightGreaterThanEqual(Double weight);
+
+    void deleteByFromConcept_IdOrToConcept_Id(String fromConceptId, String toConceptId);
 }

@@ -95,6 +95,10 @@ public class RelationshipService {
         relationshipRepository.deleteById(id);
     }
 
+    public void deleteRelationshipsByConceptId(String conceptId) {
+        relationshipRepository.deleteByFromConcept_IdOrToConcept_Id(conceptId, conceptId);
+    }
+
     /**
      * 删除两个概念之间的特定关系
      */
@@ -113,12 +117,16 @@ public class RelationshipService {
         if (concepts == null || concepts.isEmpty()) {
             return java.util.Collections.emptyList();
         }
+        List<String> conceptIds = concepts.stream()
+                .map(Concept::getId)
+                .toList();
         Set<Relationship> allRels = new LinkedHashSet<>();
-        for (Concept c : concepts) {
-            allRels.addAll(relationshipRepository.findByFromConcept_Id(c.getId()));
-            allRels.addAll(relationshipRepository.findByToConcept_Id(c.getId()));
-        }
-        return new ArrayList<>(allRels);
+        allRels.addAll(relationshipRepository.findAll());
+        return allRels.stream()
+                .filter(rel -> rel.getFromConcept() != null && rel.getToConcept() != null)
+                .filter(rel -> conceptIds.contains(rel.getFromConcept().getId()))
+                .filter(rel -> conceptIds.contains(rel.getToConcept().getId()))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
     }
 
     /**

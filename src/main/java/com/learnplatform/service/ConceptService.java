@@ -1,7 +1,6 @@
 package com.learnplatform.service;
 
 import com.learnplatform.entity.Concept;
-import com.learnplatform.entity.Relationship;
 import com.learnplatform.repository.ConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,6 +18,12 @@ public class ConceptService {
 
     @Autowired
     private ConceptRepository conceptRepository;
+
+    @Autowired
+    private RelationshipService relationshipService;
+
+    @Autowired
+    private ConceptProgressService conceptProgressService;
 
     /**
      * 创建知识点
@@ -81,7 +86,23 @@ public class ConceptService {
      * 删除知识点
      */
     public void deleteConcept(String id) {
+        conceptProgressService.deleteByConceptId(id);
+        relationshipService.deleteRelationshipsByConceptId(id);
         conceptRepository.deleteById(id);
+    }
+
+    public void deleteConceptsByChapter(String chapterId) {
+        getConceptsByChapter(chapterId).stream()
+                .map(Concept::getId)
+                .toList()
+                .forEach(this::deleteConcept);
+    }
+
+    public void deleteConceptsByCourse(String courseId) {
+        getConceptsByCourse(courseId).stream()
+                .map(Concept::getId)
+                .toList()
+                .forEach(this::deleteConcept);
     }
 
     /**

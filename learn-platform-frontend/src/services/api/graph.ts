@@ -5,11 +5,16 @@ export interface GraphNode {
   id: string
   name: string
   description?: string
+  summary?: string
+  content?: string
+  example?: string
+  commonPitfall?: string
   difficultyLevel: number
   importanceWeight: number
   category?: string
   progressStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'MASTERED'
   chapterId?: string
+  chapterGroupId?: string
   chapterTitle?: string
   resourceCount?: number
   centrality?: number
@@ -30,6 +35,7 @@ export interface GraphStatistics {
   inProgressNodes: number
   isolatedNodeIds: string[]
   isolatedCount: number
+  chapterGroups?: Record<string, number>
   hasCycles?: boolean
   cycles?: string[][]
   centralityMap?: Record<string, number>
@@ -46,6 +52,10 @@ export interface ConceptContext {
     id: string
     name: string
     description?: string
+    summary?: string
+    content?: string
+    example?: string
+    commonPitfall?: string
     difficultyLevel: number
     importanceWeight: number
   }
@@ -55,6 +65,11 @@ export interface ConceptContext {
   chapterTitle?: string
   courseId?: string
   courseName?: string
+}
+
+export interface ConceptProgressPayload {
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'MASTERED'
+  elapsedMinutes: number
 }
 
 export const graphApi = {
@@ -84,6 +99,9 @@ export const graphApi = {
 
   getPrerequisites: (conceptId: string): Promise<ApiResponse<Array<{ id: string; name: string; difficultyLevel: number }>>> =>
     http.get(`/graphs/concept/${conceptId}/prerequisites`),
+
+  updateConceptProgress: (conceptId: string, payload: ConceptProgressPayload): Promise<ApiResponse<null>> =>
+    http.post(`/graphs/concept/${conceptId}/progress`, payload),
 
   searchRelated: (conceptName: string, courseId: string): Promise<ApiResponse<string[]>> =>
     http.get('/graphs/related-concepts', { params: { conceptName, courseId } })

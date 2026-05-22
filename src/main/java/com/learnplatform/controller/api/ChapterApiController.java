@@ -6,8 +6,10 @@ import com.learnplatform.dto.response.ChapterProgressDto;
 import com.learnplatform.dto.response.ConceptGraphDto;
 import com.learnplatform.entity.Chapter;
 import com.learnplatform.entity.Concept;
+import com.learnplatform.entity.Progress;
 import com.learnplatform.security.UserPrincipal;
 import com.learnplatform.service.ChapterService;
+import com.learnplatform.service.ConceptService;
 import com.learnplatform.service.GraphService;
 import com.learnplatform.service.ProgressService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +39,9 @@ public class ChapterApiController {
 
     @Autowired
     private GraphService graphService;
+
+    @Autowired
+    private ConceptService conceptService;
 
     @Operation(summary = "获取章节详情", description = "根据章节ID获取章节详细信息")
     @GetMapping("/{id}")
@@ -141,11 +146,20 @@ public class ChapterApiController {
             // 处理进度更新
             boolean completed = request.isCompleted();
             int elapsedMinutes = request.getElapsedMinutes();
+            Progress.ProgressStatus targetStatus = request.resolveStatus();
 
-            // 保存或更新进度
-            progressService.updateProgress(userId, chapterId, completed, elapsedMinutes);
+            if (targetStatus != null) {
+                progressService.updateProgress(userId, chapterId, targetStatus, elapsedMinutes);
+            } else {
+                progressService.updateProgress(userId, chapterId, completed, elapsedMinutes);
+            }
 
-            String message = completed ? "章节已完成" : "学习进度已保存";
+            String message = switch (targetStatus != null ? targetStatus : (completed ? Progress.ProgressStatus.COMPLETED : Progress.ProgressStatus.IN_PROGRESS)) {
+                case COMPLETED -> "章节已完成";
+                case MASTERED -> "章节已标记为已掌握";
+                case NOT_STARTED -> "章节已重置为未开始";
+                default -> "学习进度已保存";
+            };
             return ApiResponse.success(null, message);
         } catch (Exception e) {
             return ApiResponse.error("更新进度失败: " + e.getMessage());
@@ -208,7 +222,7 @@ public class ChapterApiController {
             }
 
             Chapter chapter = chapterOpt.get();
-            List<Concept> chapterConcepts = chapter.getConcepts();
+            List<Concept> chapterConcepts = conceptService.getConceptsByChapter(chapter.getId());
             
             // 收集所有关联概念的前置知识点
             List<Concept> allPrerequisites = new ArrayList<>();
@@ -239,6 +253,7 @@ public class ChapterApiController {
     public static class ProgressUpdateRequest {
         private boolean completed;
         private int elapsedMinutes;
+        private String status;
 
         public ProgressUpdateRequest() {
         }
@@ -262,6 +277,21 @@ public class ChapterApiController {
 
         public void setElapsedMinutes(int elapsedMinutes) {
             this.elapsedMinutes = elapsedMinutes;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public Progress.ProgressStatus resolveStatus() {
+            if (status == null || status.isBlank()) {
+                return null;
+            }
+            return Progress.ProgressStatus.valueOf(status);
         }
     }
 

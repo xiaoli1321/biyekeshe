@@ -46,8 +46,8 @@ public class ChapterDto {
                 chapter.getTitle(),
                 chapter.getDescription(),
                 chapter.getContent(),
-                chapter.getOrderIndex(),
-                chapter.getEstimatedMinutes(),
+                chapter.getOrderIndex() != null ? chapter.getOrderIndex() : 0,
+                chapter.getEstimatedMinutes() != null ? chapter.getEstimatedMinutes() : 0,
                 chapter.getVideoUrl(),
                 chapter.getAttachmentUrls(),
                 chapter.getType() != null ? chapter.getType().name() : "TEXT"

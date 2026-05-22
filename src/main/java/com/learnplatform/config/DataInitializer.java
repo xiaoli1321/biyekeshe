@@ -113,16 +113,16 @@ public class DataInitializer {
                 Relationship rel1 = new Relationship(concept2, concept1, Relationship.RelationshipType.USES, 0.9, "JDK使用JVM执行代码");
                 relationshipRepository.save(rel1);
 
-                Relationship rel2 = new Relationship(concept3, concept4, Relationship.RelationshipType.PREREQUISITE, 0.8, "变量依赖于数据类型");
+                Relationship rel2 = new Relationship(concept4, concept3, Relationship.RelationshipType.PREREQUISITE, 0.8, "变量依赖于数据类型");
                 relationshipRepository.save(rel2);
 
-                Relationship rel3 = new Relationship(concept5, concept3, Relationship.RelationshipType.PREREQUISITE, 0.7, "类和对象使用变量");
+                Relationship rel3 = new Relationship(concept3, concept5, Relationship.RelationshipType.PREREQUISITE, 0.7, "类和对象使用变量");
                 relationshipRepository.save(rel3);
 
-                Relationship rel4 = new Relationship(concept6, concept5, Relationship.RelationshipType.PREREQUISITE, 0.9, "继承基于类的概念");
+                Relationship rel4 = new Relationship(concept5, concept6, Relationship.RelationshipType.PREREQUISITE, 0.9, "继承基于类的概念");
                 relationshipRepository.save(rel4);
 
-                Relationship rel5 = new Relationship(concept7, concept5, Relationship.RelationshipType.PREREQUISITE, 0.8, "多态使用类的概念");
+                Relationship rel5 = new Relationship(concept5, concept7, Relationship.RelationshipType.PREREQUISITE, 0.8, "多态使用类的概念");
                 relationshipRepository.save(rel5);
 
                 Relationship rel6 = new Relationship(concept7, concept6, Relationship.RelationshipType.USES, 0.7, "多态常与继承结合使用");
@@ -178,6 +178,42 @@ public class DataInitializer {
                     System.out.println("✓ AgentX 默认智能体已初始化");
                 }
             }
+
+            normalizeSampleGraphRelationships(relationshipRepository);
         };
+    }
+
+    private void normalizeSampleGraphRelationships(RelationshipRepository relationshipRepository) {
+        relationshipRepository.findByRelationshipType(Relationship.RelationshipType.PREREQUISITE)
+                .forEach(rel -> {
+                    String description = rel.getDescription();
+                    if (description == null) {
+                        return;
+                    }
+
+                    boolean shouldSwap =
+                            ("变量依赖于数据类型".equals(description)
+                                    && "变量".equals(rel.getFromConcept().getName())
+                                    && "数据类型".equals(rel.getToConcept().getName()))
+                            || ("类和对象使用变量".equals(description)
+                                    && "类和对象".equals(rel.getFromConcept().getName())
+                                    && "变量".equals(rel.getToConcept().getName()))
+                            || ("继承基于类的概念".equals(description)
+                                    && "继承".equals(rel.getFromConcept().getName())
+                                    && "类和对象".equals(rel.getToConcept().getName()))
+                            || ("多态使用类的概念".equals(description)
+                                    && "多态".equals(rel.getFromConcept().getName())
+                                    && "类和对象".equals(rel.getToConcept().getName()));
+
+                    if (!shouldSwap) {
+                        return;
+                    }
+
+                    Concept originalFrom = rel.getFromConcept();
+                    rel.setFromConcept(rel.getToConcept());
+                    rel.setToConcept(originalFrom);
+                    relationshipRepository.save(rel);
+                    System.out.println("✓ 已纠正示例知识图谱关系方向: " + description);
+                });
     }
 }

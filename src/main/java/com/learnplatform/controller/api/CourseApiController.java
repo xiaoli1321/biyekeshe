@@ -99,7 +99,12 @@ public class CourseApiController {
             return ApiResponse.error("课程未找到", "COURSE_NOT_FOUND");
         }
 
-        CourseDto courseDto = CourseDto.fromCourse(courseOpt.get());
+        Course course = courseOpt.get();
+        CourseDto courseDto = CourseDto.fromCourseBasic(course);
+        courseDto.setChapters(DtoConverter.convertList(
+                chapterService.getChaptersByCourseOrdered(course.getId()),
+                ChapterDto::fromChapter
+        ));
         return ApiResponse.success(courseDto, "获取课程详情成功");
     }
 

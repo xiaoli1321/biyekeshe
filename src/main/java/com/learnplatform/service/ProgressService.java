@@ -205,6 +205,13 @@ public class ProgressService {
      * 更新学习进度
      */
     public Progress updateProgress(String userId, String chapterId, boolean completed, int studyMinutes) {
+        Progress.ProgressStatus targetStatus = completed
+                ? Progress.ProgressStatus.COMPLETED
+                : Progress.ProgressStatus.IN_PROGRESS;
+        return updateProgress(userId, chapterId, targetStatus, studyMinutes);
+    }
+
+    public Progress updateProgress(String userId, String chapterId, Progress.ProgressStatus targetStatus, int studyMinutes) {
         Progress progress = progressRepository.findByUser_IdAndChapter_Id(userId, chapterId);
         if (progress == null) {
             Chapter chapter = chapterService.findChapterById(chapterId)
@@ -222,11 +229,27 @@ public class ProgressService {
             progress.setStartedAt(LocalDateTime.now());
             progress.setStatus(Progress.ProgressStatus.IN_PROGRESS);
         }
-        if (completed) {
+
+        Progress.ProgressStatus effectiveStatus = targetStatus != null
+                ? targetStatus
+                : Progress.ProgressStatus.IN_PROGRESS;
+
+        if (effectiveStatus == Progress.ProgressStatus.NOT_STARTED) {
+            progress.setStatus(Progress.ProgressStatus.NOT_STARTED);
+            progress.setCompletedAt(null);
+            progress.setScore(0.0);
+        } else if (effectiveStatus == Progress.ProgressStatus.IN_PROGRESS) {
+            progress.setStatus(Progress.ProgressStatus.IN_PROGRESS);
+            progress.setCompletedAt(null);
+        } else if (effectiveStatus == Progress.ProgressStatus.COMPLETED) {
             progress.setStatus(Progress.ProgressStatus.COMPLETED);
             progress.setCompletedAt(LocalDateTime.now());
-        } else if (progress.getStatus() == Progress.ProgressStatus.NOT_STARTED) {
-            progress.setStatus(Progress.ProgressStatus.IN_PROGRESS);
+        } else if (effectiveStatus == Progress.ProgressStatus.MASTERED) {
+            progress.setStatus(Progress.ProgressStatus.MASTERED);
+            progress.setCompletedAt(LocalDateTime.now());
+            progress.setScore(100.0);
+        } else {
+            progress.setStatus(effectiveStatus);
         }
 
         int safeMinutes = Math.max(studyMinutes, 0);

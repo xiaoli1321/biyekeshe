@@ -2,6 +2,7 @@ package com.learnplatform.service;
 
 import com.learnplatform.dto.GraphData;
 import com.learnplatform.entity.Concept;
+import com.learnplatform.entity.ConceptProgress;
 import com.learnplatform.entity.Progress;
 import com.learnplatform.entity.Relationship;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,9 @@ public class GraphService {
     @Autowired
     private ProgressService progressService;
 
+    @Autowired
+    private ConceptProgressService conceptProgressService;
+
     // ==================== 核心图谱数据 ====================
 
     /**
@@ -36,19 +40,13 @@ public class GraphService {
         List<Concept> concepts = conceptService.getConceptsByCourse(courseId);
         List<Relationship> relationships = relationshipService.getRelationshipsByCourse(courseId);
         List<Progress> userProgress = progressService.getUserCourseProgress(userId, courseId);
+        List<ConceptProgress> conceptProgressList = conceptProgressService.getUserCourseConceptProgress(userId, courseId);
 
-        Set<String> completedChapterIds = userProgress.stream()
-                .filter(Progress::isCompleted)
-                .map(p -> p.getChapter().getId())
-                .collect(Collectors.toSet());
-
-        Set<String> inProgressChapterIds = userProgress.stream()
-                .filter(p -> p.getStatus() == Progress.ProgressStatus.IN_PROGRESS)
-                .map(p -> p.getChapter().getId())
-                .collect(Collectors.toSet());
+        Map<String, Progress.ProgressStatus> chapterStatusMap = buildChapterStatusMap(userProgress);
+        Map<String, ConceptProgress.ProgressStatus> conceptStatusMap = buildConceptStatusMap(conceptProgressList);
 
         List<GraphData.GraphNode> nodes = concepts.stream()
-                .map(c -> convertToGraphNode(c, completedChapterIds, inProgressChapterIds))
+                .map(c -> convertToGraphNode(c, chapterStatusMap, conceptStatusMap))
                 .collect(Collectors.toList());
 
         List<GraphData.GraphLink> links = relationships.stream()
@@ -68,7 +66,7 @@ public class GraphService {
         List<Relationship> relationships = relationshipService.getRelationshipsByCourse(courseId);
 
         List<GraphData.GraphNode> nodes = concepts.stream()
-                .map(c -> convertToGraphNode(c, Collections.emptySet(), Collections.emptySet()))
+                .map(c -> convertToGraphNode(c, Collections.emptyMap(), Collections.emptyMap()))
                 .collect(Collectors.toList());
 
         List<GraphData.GraphLink> links = relationships.stream()
@@ -301,6 +299,10 @@ public class GraphService {
         context.put("chapterTitle", concept.getChapter() != null ? concept.getChapter().getTitle() : null);
         context.put("courseId", concept.getCourse() != null ? concept.getCourse().getId() : null);
         context.put("courseName", concept.getCourse() != null ? concept.getCourse().getName() : null);
+        context.put("summary", concept.getSummary());
+        context.put("content", concept.getContent());
+        context.put("example", concept.getExample());
+        context.put("commonPitfall", concept.getCommonPitfall());
 
         return context;
     }
@@ -392,11 +394,10 @@ public class GraphService {
         List<Concept> allConcepts = conceptService.getConceptsByCourse(courseId);
         List<Relationship> relationships = relationshipService.getRelationshipsByCourse(courseId);
         List<Progress> userProgress = progressService.getUserCourseProgress(userId, courseId);
+        List<ConceptProgress> conceptProgressList = conceptProgressService.getUserCourseConceptProgress(userId, courseId);
 
-        Set<String> completedIds = userProgress.stream()
-                .filter(Progress::isCompleted)
-                .map(p -> p.getChapter().getId())
-                .collect(Collectors.toSet());
+        Map<String, Progress.ProgressStatus> chapterStatusMap = buildChapterStatusMap(userProgress);
+        Map<String, ConceptProgress.ProgressStatus> conceptStatusMap = buildConceptStatusMap(conceptProgressList);
 
         // 构建入度表（只考虑 PREREQUISITE 关系）
         Map<String, Integer> inDegree = new HashMap<>();
@@ -435,8 +436,9 @@ public class GraphService {
                     .thenComparing(id -> -conceptMap.get(id).getImportanceWeight()));
 
             for (String id : candidates) {
-                if (!completedIds.contains(getChapterIdForConcept(id))) {
-                    learningPath.add(conceptMap.get(id));
+                Concept concept = conceptMap.get(id);
+                if (!isConceptCompletedForPlanning(concept, chapterStatusMap, conceptStatusMap)) {
+                    learningPath.add(concept);
                 }
                 for (String neighbor : adj.getOrDefault(id, Collections.emptyList())) {
                     int newDegree = inDegree.merge(neighbor, -1, Integer::sum);
@@ -450,11 +452,6 @@ public class GraphService {
         return learningPath;
     }
 
-    private String getChapterIdForConcept(String conceptId) {
-        Concept c = conceptService.findConceptById(conceptId).orElse(null);
-        return c != null && c.getChapter() != null ? c.getChapter().getId() : "";
-    }
-
     /**
      * 检查知识点是否可学习（所有先修已满足）
      */
@@ -466,6 +463,29 @@ public class GraphService {
             }
         }
         return true;
+    }
+
+    /**
+     * 根据用户进度判断知识点是否可学习。
+     * 规则：所有直接先修知识点所属章节都已完成/掌握，才允许学习。
+     */
+    public boolean canStudyConcept(String userId, String courseId, String conceptId) {
+        if (userId == null || userId.isBlank() || courseId == null || courseId.isBlank()) {
+            return canStudyConcept(conceptId);
+        }
+
+        List<Concept> prerequisites = getDirectPrerequisites(conceptId);
+        if (prerequisites.isEmpty()) {
+            return true;
+        }
+
+        Map<String, Progress.ProgressStatus> chapterStatusMap =
+                buildChapterStatusMap(progressService.getUserCourseProgress(userId, courseId));
+        Map<String, ConceptProgress.ProgressStatus> conceptStatusMap =
+                buildConceptStatusMap(conceptProgressService.getUserCourseConceptProgress(userId, courseId));
+
+        return prerequisites.stream()
+                .allMatch(prerequisite -> isConceptCompletedForPlanning(prerequisite, chapterStatusMap, conceptStatusMap));
     }
 
     public List<String> getRelatedConcepts(String conceptName, String courseId) {
@@ -483,9 +503,11 @@ public class GraphService {
 
     // ==================== 私有工具方法 ====================
 
-    private GraphData.GraphNode convertToGraphNode(Concept concept,
-                                                    Set<String> completedChapterIds,
-                                                    Set<String> inProgressChapterIds) {
+    private GraphData.GraphNode convertToGraphNode(
+            Concept concept,
+            Map<String, Progress.ProgressStatus> chapterStatusMap,
+            Map<String, ConceptProgress.ProgressStatus> conceptStatusMap
+    ) {
         GraphData.GraphNode node = new GraphData.GraphNode(
                 concept.getId(),
                 concept.getName(),
@@ -493,18 +515,15 @@ public class GraphService {
                 concept.getImportanceWeight()
         );
         node.setDescription(concept.getDescription());
+        node.setSummary(concept.getSummary());
+        node.setContent(concept.getContent());
+        node.setExample(concept.getExample());
+        node.setCommonPitfall(concept.getCommonPitfall());
         node.setCategory(difficultyToCategory(concept.getDifficultyLevel()));
         node.setChapterId(concept.getChapter() != null ? concept.getChapter().getId() : null);
+        node.setChapterGroupId(concept.getChapter() != null ? concept.getChapter().getId() : null);
         node.setChapterTitle(concept.getChapter() != null ? concept.getChapter().getTitle() : null);
-
-        String chapterId = concept.getChapter() != null ? concept.getChapter().getId() : null;
-        if (chapterId != null && completedChapterIds.contains(chapterId)) {
-            node.setProgressStatus("COMPLETED");
-        } else if (chapterId != null && inProgressChapterIds.contains(chapterId)) {
-            node.setProgressStatus("IN_PROGRESS");
-        } else {
-            node.setProgressStatus("NOT_STARTED");
-        }
+        node.setProgressStatus(resolveConceptProgressStatus(concept, chapterStatusMap, conceptStatusMap));
 
         return node;
     }
@@ -527,7 +546,9 @@ public class GraphService {
         stats.setTotalNodes(concepts.size());
         stats.setTotalLinks(relationships.size());
 
-        long completed = nodes.stream().filter(n -> "COMPLETED".equals(n.getProgressStatus())).count();
+        long completed = nodes.stream()
+                .filter(n -> "COMPLETED".equals(n.getProgressStatus()) || "MASTERED".equals(n.getProgressStatus()))
+                .count();
         long inProgress = nodes.stream().filter(n -> "IN_PROGRESS".equals(n.getProgressStatus())).count();
         stats.setCompletedNodes((int) completed);
         stats.setInProgressNodes((int) inProgress);
@@ -543,6 +564,15 @@ public class GraphService {
                 .collect(Collectors.toList());
         stats.setIsolatedNodeIds(isolated);
         stats.setIsolatedCount(isolated.size());
+        stats.setChapterGroups(nodes.stream()
+                .map(GraphData.GraphNode::getChapterTitle)
+                .filter(title -> title != null && !title.isBlank())
+                .collect(Collectors.toMap(
+                        title -> title,
+                        title -> 1,
+                        Integer::sum,
+                        LinkedHashMap::new
+                )));
 
         return stats;
     }
@@ -551,5 +581,79 @@ public class GraphService {
         if (level <= 2) return "基础";
         if (level <= 4) return "进阶";
         return "高级";
+    }
+
+    private Map<String, Progress.ProgressStatus> buildChapterStatusMap(List<Progress> progressList) {
+        return progressList.stream()
+                .filter(progress -> progress.getChapter() != null && progress.getChapter().getId() != null)
+                .collect(Collectors.toMap(
+                        progress -> progress.getChapter().getId(),
+                        Progress::getStatus,
+                        (left, right) -> right
+                ));
+    }
+
+    private Map<String, ConceptProgress.ProgressStatus> buildConceptStatusMap(List<ConceptProgress> progressList) {
+        return progressList.stream()
+                .filter(progress -> progress.getConcept() != null && progress.getConcept().getId() != null)
+                .collect(Collectors.toMap(
+                        progress -> progress.getConcept().getId(),
+                        ConceptProgress::getStatus,
+                        (left, right) -> right
+                ));
+    }
+
+    private String resolveConceptProgressStatus(
+            Concept concept,
+            Map<String, Progress.ProgressStatus> chapterStatusMap,
+            Map<String, ConceptProgress.ProgressStatus> conceptStatusMap
+    ) {
+        ConceptProgress.ProgressStatus conceptStatus = conceptStatusMap.get(concept.getId());
+        if (conceptStatus != null) {
+            return conceptStatus.name();
+        }
+
+        String chapterId = concept.getChapter() != null ? concept.getChapter().getId() : null;
+        if (chapterId == null) {
+            return "NOT_STARTED";
+        }
+
+        Progress.ProgressStatus chapterStatus = chapterStatusMap.get(chapterId);
+        if (chapterStatus == null) {
+            return "NOT_STARTED";
+        }
+        return switch (chapterStatus) {
+            case MASTERED -> "MASTERED";
+            case COMPLETED -> "COMPLETED";
+            case IN_PROGRESS, REVIEWING -> "IN_PROGRESS";
+            default -> "NOT_STARTED";
+        };
+    }
+
+    private boolean isConceptCompleted(
+            Concept concept,
+            Map<String, Progress.ProgressStatus> chapterStatusMap,
+            Map<String, ConceptProgress.ProgressStatus> conceptStatusMap
+    ) {
+        String status = resolveConceptProgressStatus(concept, chapterStatusMap, conceptStatusMap);
+        return "COMPLETED".equals(status) || "MASTERED".equals(status);
+    }
+
+    private boolean isConceptCompletedForPlanning(
+            Concept concept,
+            Map<String, Progress.ProgressStatus> chapterStatusMap,
+            Map<String, ConceptProgress.ProgressStatus> conceptStatusMap
+    ) {
+        ConceptProgress.ProgressStatus conceptStatus = conceptStatusMap.get(concept.getId());
+        if (conceptStatus != null) {
+            return conceptStatus == ConceptProgress.ProgressStatus.COMPLETED
+                    || conceptStatus == ConceptProgress.ProgressStatus.MASTERED;
+        }
+
+        if (!conceptStatusMap.isEmpty()) {
+            return false;
+        }
+
+        return isConceptCompleted(concept, chapterStatusMap, conceptStatusMap);
     }
 }

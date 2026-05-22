@@ -129,12 +129,22 @@
       <div class="card-header bg-success-subtle">
         <ul class="nav nav-tabs card-header-tabs" role="tablist">
           <li class="nav-item">
-            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#conceptTab" type="button">
+            <button
+              class="nav-link"
+              :class="{ active: activeManageTab === 'concepts' }"
+              type="button"
+              @click="activeManageTab = 'concepts'"
+            >
               <i class="bi bi-diagram-3 me-1"></i>知识点管理
             </button>
           </li>
           <li class="nav-item">
-            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#relationTab" type="button">
+            <button
+              class="nav-link"
+              :class="{ active: activeManageTab === 'relations' }"
+              type="button"
+              @click="activeManageTab = 'relations'"
+            >
               <i class="bi bi-arrow-left-right me-1"></i>关系管理
             </button>
           </li>
@@ -142,7 +152,7 @@
       </div>
       <div class="card-body tab-content">
         <!-- Concepts Tab -->
-        <div class="tab-pane fade show active" id="conceptTab">
+        <div v-show="activeManageTab === 'concepts'" class="tab-pane show active">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <span class="text-muted small">共 {{ allConcepts.length }} 个知识点</span>
             <button class="btn btn-success btn-sm" @click="openConceptModal()">
@@ -161,6 +171,7 @@
                 <tr>
                   <th>名称</th>
                   <th>所属章节</th>
+                  <th>内容摘要</th>
                   <th>难度</th>
                   <th>重要度</th>
                   <th class="text-end">操作</th>
@@ -170,6 +181,9 @@
                 <tr v-for="c in allConcepts" :key="c.id">
                   <td class="fw-bold">{{ c.name }}</td>
                   <td><span class="badge bg-light text-dark">{{ getChapterTitle(c.chapterId || c.chapter?.id) }}</span></td>
+                  <td class="text-muted small concept-summary-cell">
+                    {{ c.summary || c.description || '暂无内容' }}
+                  </td>
                   <td>
                     <span class="badge" :class="c.difficultyLevel <= 2 ? 'bg-success' : c.difficultyLevel <= 4 ? 'bg-warning text-dark' : 'bg-danger'">
                       Lv.{{ c.difficultyLevel }}
@@ -188,7 +202,7 @@
           </div>
         </div>
         <!-- Relations Tab -->
-        <div class="tab-pane fade" id="relationTab">
+        <div v-show="activeManageTab === 'relations'" class="tab-pane show active">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <span class="text-muted small">共 {{ allRelationships.length }} 条关系</span>
             <button class="btn btn-success btn-sm" @click="openRelationModal()">
@@ -231,27 +245,80 @@
 
     <!-- Concept Modal -->
     <div v-if="conceptModalOpen" class="modal-overlay">
-      <div class="modal-container">
+      <div class="modal-container modal-container-wide">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">{{ editingConcept?.id ? '编辑知识点' : '添加知识点' }}</h5>
           <button type="button" class="btn-close" @click="conceptModalOpen = false"></button>
         </div>
         <form @submit.prevent="handleConceptSubmit">
-          <div class="mb-3">
-            <label class="form-label">知识点名称</label>
-            <input v-model="conceptForm.name" type="text" class="form-control" required />
+          <div class="section-card mb-3">
+            <div class="section-card-title">基础信息</div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">知识点名称</label>
+                <input v-model="conceptForm.name" type="text" class="form-control" required />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">所属章节</label>
+                <select v-model="conceptForm.chapterId" class="form-select" required>
+                  <option value="">-- 选择章节 --</option>
+                  <option v-for="ch in chapters" :key="ch.id" :value="ch.id">{{ ch.title }} (序号: {{ ch.orderIndex }})</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label">一句话定义</label>
+                <input
+                  v-model="conceptForm.summary"
+                  type="text"
+                  class="form-control"
+                  placeholder="用一句话说明这个知识点是什么、解决什么问题"
+                />
+              </div>
+              <div class="col-12">
+                <label class="form-label">补充描述</label>
+                <textarea
+                  v-model="conceptForm.description"
+                  class="form-control"
+                  rows="2"
+                  placeholder="可选，用于列表和搜索中的简短说明"
+                ></textarea>
+              </div>
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">所属章节</label>
-            <select v-model="conceptForm.chapterId" class="form-select" required>
-              <option value="">-- 选择章节 --</option>
-              <option v-for="ch in chapters" :key="ch.id" :value="ch.id">{{ ch.title }} (序号: {{ ch.orderIndex }})</option>
-            </select>
+
+          <div class="section-card mb-3">
+            <div class="section-card-title">知识点内容卡片</div>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">详细讲解</label>
+                <textarea
+                  v-model="conceptForm.content"
+                  class="form-control"
+                  rows="5"
+                  placeholder="这里写清楚这个知识点的核心概念、原理、使用场景"
+                ></textarea>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">示例</label>
+                <textarea
+                  v-model="conceptForm.example"
+                  class="form-control"
+                  rows="4"
+                  placeholder="例如：代码片段、公式、业务例子"
+                ></textarea>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">常见误区</label>
+                <textarea
+                  v-model="conceptForm.commonPitfall"
+                  class="form-control"
+                  rows="4"
+                  placeholder="例如：常犯错误、容易混淆的点、边界条件"
+                ></textarea>
+              </div>
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">描述</label>
-            <textarea v-model="conceptForm.description" class="form-control" rows="2"></textarea>
-          </div>
+
           <div class="row g-3 mb-3">
             <div class="col-md-6">
               <label class="form-label">难度 (1-5)</label>
@@ -276,6 +343,9 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">添加知识点关系</h5>
           <button type="button" class="btn-close" @click="relationModalOpen = false"></button>
+        </div>
+        <div v-if="relationError" class="alert alert-danger py-2 small" role="alert">
+          {{ relationError }}
         </div>
         <form @submit.prevent="handleRelationSubmit">
           <div class="mb-3">
@@ -314,7 +384,10 @@
           </div>
           <div class="d-flex justify-content-end gap-2">
             <button type="button" class="btn btn-outline-secondary" @click="relationModalOpen = false">取消</button>
-            <button type="submit" class="btn btn-success">创建关系</button>
+            <button type="submit" class="btn btn-success" :disabled="relationSubmitting">
+              <span v-if="relationSubmitting" class="spinner-border spinner-border-sm me-2"></span>
+              创建关系
+            </button>
           </div>
         </form>
       </div>
@@ -472,13 +545,27 @@ const allConcepts = ref<any[]>([])
 const loadingConcepts = ref(false)
 const conceptModalOpen = ref(false)
 const editingConcept = ref<any | null>(null)
-const conceptForm = reactive({ name: '', description: '', chapterId: '', difficultyLevel: 1, importanceWeight: 50, courseId: '' })
+const conceptForm = reactive({
+  name: '',
+  description: '',
+  summary: '',
+  content: '',
+  example: '',
+  commonPitfall: '',
+  chapterId: '',
+  difficultyLevel: 1,
+  importanceWeight: 50,
+  courseId: ''
+})
+const activeManageTab = ref<'concepts' | 'relations'>('concepts')
 
 // Relation state
 const allRelationships = ref<any[]>([])
 const loadingRels = ref(false)
 const relationModalOpen = ref(false)
 const relationForm = reactive({ fromConceptId: '', toConceptId: '', type: 'PREREQUISITE', weight: 0.8, description: '' })
+const relationSubmitting = ref(false)
+const relationError = ref('')
 
 async function loadConceptsAndRels(courseId: string) {
   loadingConcepts.value = true
@@ -511,6 +598,10 @@ function openConceptModal(concept?: any) {
     editingConcept.value = concept
     conceptForm.name = concept.name
     conceptForm.description = concept.description || ''
+    conceptForm.summary = concept.summary || ''
+    conceptForm.content = concept.content || ''
+    conceptForm.example = concept.example || ''
+    conceptForm.commonPitfall = concept.commonPitfall || ''
     conceptForm.chapterId = concept.chapter?.id || concept.chapterId || ''
     conceptForm.difficultyLevel = concept.difficultyLevel || 1
     conceptForm.importanceWeight = concept.importanceWeight || 50
@@ -518,6 +609,10 @@ function openConceptModal(concept?: any) {
     editingConcept.value = null
     conceptForm.name = ''
     conceptForm.description = ''
+    conceptForm.summary = ''
+    conceptForm.content = ''
+    conceptForm.example = ''
+    conceptForm.commonPitfall = ''
     conceptForm.chapterId = ''
     conceptForm.difficultyLevel = 1
     conceptForm.importanceWeight = 50
@@ -532,8 +627,14 @@ async function handleConceptSubmit() {
     let res
     if (editingConcept.value?.id) {
       res = await http.put(`/concepts/${editingConcept.value.id}`, {
-        name: conceptForm.name, description: conceptForm.description,
-        difficultyLevel: conceptForm.difficultyLevel, importanceWeight: conceptForm.importanceWeight
+        name: conceptForm.name,
+        description: conceptForm.description,
+        summary: conceptForm.summary,
+        content: conceptForm.content,
+        example: conceptForm.example,
+        commonPitfall: conceptForm.commonPitfall,
+        difficultyLevel: conceptForm.difficultyLevel,
+        importanceWeight: conceptForm.importanceWeight
       })
     } else {
       res = await http.post('/concepts', {
@@ -564,10 +665,38 @@ function openRelationModal() {
   relationForm.type = 'PREREQUISITE'
   relationForm.weight = 0.8
   relationForm.description = ''
+  relationError.value = ''
   relationModalOpen.value = true
 }
 
 async function handleRelationSubmit() {
+  relationError.value = ''
+
+  if (!relationForm.fromConceptId || !relationForm.toConceptId) {
+    relationError.value = '请选择源知识点和目标知识点'
+    return
+  }
+
+  if (relationForm.fromConceptId === relationForm.toConceptId) {
+    relationError.value = '源知识点和目标知识点不能是同一个'
+    return
+  }
+
+  const duplicateRelation = allRelationships.value.find((item: any) => {
+    const fromId = item.fromConcept?.id || item.fromConceptId
+    const toId = item.toConcept?.id || item.toConceptId
+    const type = item.type || item.relationshipType
+    return fromId === relationForm.fromConceptId
+      && toId === relationForm.toConceptId
+      && type === relationForm.type
+  })
+
+  if (duplicateRelation) {
+    relationError.value = '这条关系已经存在了，请不要重复创建'
+    return
+  }
+
+  relationSubmitting.value = true
   try {
     const res = await http.post('/relationships', { ...relationForm })
     if ((res as any).success) {
@@ -575,9 +704,15 @@ async function handleRelationSubmit() {
       relationModalOpen.value = false
       if (editingId.value) await loadConceptsAndRels(editingId.value)
     } else {
+      relationError.value = (res as any).message || '创建失败'
       showMessage((res as any).message || '创建失败', 'alert-danger')
     }
-  } catch (e) { console.error(e) }
+  } catch (e: any) {
+    relationError.value = e?.message || e?.error || '创建关系失败，请稍后重试'
+    console.error(e)
+  } finally {
+    relationSubmitting.value = false
+  }
 }
 
 async function handleDeleteRelation(id: string) {
@@ -614,6 +749,9 @@ const showMessage = (text: string, type = 'alert-info') => {
 const resetForm = () => {
   editingId.value = null
   chapters.value = []
+  allConcepts.value = []
+  allRelationships.value = []
+  activeManageTab.value = 'concepts'
   form.name = ''
   form.description = ''
   form.instructor = ''
@@ -635,6 +773,7 @@ const loadCourses = async () => {
 const startEdit = async (course: any) => {
   const c = course as Course
   editingId.value = c.id
+  activeManageTab.value = 'concepts'
   form.name = c.title || c.name || ''
   form.description = c.description || ''
   form.instructor = c.instructor || ''
@@ -643,7 +782,10 @@ const startEdit = async (course: any) => {
   form.tags = c.tags || ''
   form.published = c.published
   
-  await loadChapters(c.id)
+  await Promise.all([
+    loadChapters(c.id),
+    loadConceptsAndRels(c.id)
+  ])
 }
 
 const loadChapters = async (courseId: string) => {
@@ -699,7 +841,10 @@ const handleChapterSubmit = async () => {
   if (result?.success) {
     showMessage('章节已保存', 'alert-success')
     chapterModalOpen.value = false
-    await loadChapters(cid)
+    await Promise.all([
+      loadChapters(cid),
+      loadConceptsAndRels(cid)
+    ])
   } else {
     showMessage(result?.message || '保存章节失败', 'alert-danger')
   }
@@ -710,7 +855,10 @@ const handleDeleteChapter = async (id: string) => {
   const result = await chapterApi.deleteChapter(id)
   const cid = editingId.value
   if (result?.success && cid) {
-    await loadChapters(cid)
+    await Promise.all([
+      loadChapters(cid),
+      loadConceptsAndRels(cid)
+    ])
   }
 }
 
@@ -760,6 +908,9 @@ const handleDelete = async (id: string) => {
 
   const result = await courseStore.deleteCourse(id)
   if (result?.success) {
+    if (editingId.value === id) {
+      resetForm()
+    }
     showMessage('课程已删除', 'alert-success')
     await loadCourses()
   } else {
@@ -796,5 +947,29 @@ onMounted(() => {
 }
 .extra-small {
   font-size: 0.75rem;
+}
+
+.modal-container-wide {
+  max-width: 760px;
+}
+
+.section-card {
+  padding: 1rem;
+  border-radius: 0.9rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.section-card-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 0.85rem;
+}
+
+.concept-summary-cell {
+  min-width: 240px;
+  max-width: 320px;
+  line-height: 1.4;
 }
 </style>

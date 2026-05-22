@@ -45,23 +45,39 @@ public class ConceptApiController {
     @Operation(summary = "创建知识点")
     @PostMapping("/concepts")
     public ApiResponse<Concept> createConcept(@RequestBody Map<String, Object> body) {
-        String name = (String) body.get("name");
-        String description = (String) body.get("description");
-        String chapterId = (String) body.get("chapterId");
-        String courseId = (String) body.get("courseId");
-        Integer difficultyLevel = body.get("difficultyLevel") != null ? ((Number) body.get("difficultyLevel")).intValue() : 1;
-        Integer importanceWeight = body.get("importanceWeight") != null ? ((Number) body.get("importanceWeight")).intValue() : 50;
+        try {
+            String name = (String) body.get("name");
+            String description = (String) body.get("description");
+            String summary = (String) body.get("summary");
+            String content = (String) body.get("content");
+            String example = (String) body.get("example");
+            String commonPitfall = (String) body.get("commonPitfall");
+            String chapterId = (String) body.get("chapterId");
+            String courseId = (String) body.get("courseId");
+            Integer difficultyLevel = body.get("difficultyLevel") != null ? ((Number) body.get("difficultyLevel")).intValue() : 1;
+            Integer importanceWeight = body.get("importanceWeight") != null ? ((Number) body.get("importanceWeight")).intValue() : 50;
 
-        Chapter chapter = chapterService.findChapterById(chapterId)
-                .orElseThrow(() -> new IllegalArgumentException("章节未找到"));
-        Course course = courseService.findCourseById(courseId)
-                .orElseThrow(() -> new IllegalArgumentException("课程未找到"));
+            Chapter chapter = chapterService.findChapterById(chapterId)
+                    .orElseThrow(() -> new IllegalArgumentException("章节未找到"));
+            Course course = courseService.findCourseById(courseId)
+                    .orElseThrow(() -> new IllegalArgumentException("课程未找到"));
 
-        Concept concept = new Concept(course, chapter, name, description);
-        concept.setDifficultyLevel(difficultyLevel);
-        concept.setImportanceWeight(importanceWeight);
-        Concept saved = conceptService.createConcept(concept);
-        return ApiResponse.success(saved, "知识点创建成功");
+            if (chapter.getCourse() == null || !courseId.equals(chapter.getCourse().getId())) {
+                throw new IllegalArgumentException("章节不属于所选课程");
+            }
+
+            Concept concept = new Concept(course, chapter, name, description);
+            concept.setSummary(summary);
+            concept.setContent(content);
+            concept.setExample(example);
+            concept.setCommonPitfall(commonPitfall);
+            concept.setDifficultyLevel(difficultyLevel);
+            concept.setImportanceWeight(importanceWeight);
+            Concept saved = conceptService.createConcept(concept);
+            return ApiResponse.success(saved, "知识点创建成功");
+        } catch (Exception e) {
+            return ApiResponse.error("知识点创建失败: " + e.getMessage());
+        }
     }
 
     @Operation(summary = "更新知识点")
@@ -71,6 +87,10 @@ public class ConceptApiController {
                 .orElseThrow(() -> new IllegalArgumentException("知识点未找到"));
         if (body.containsKey("name")) concept.setName((String) body.get("name"));
         if (body.containsKey("description")) concept.setDescription((String) body.get("description"));
+        if (body.containsKey("summary")) concept.setSummary((String) body.get("summary"));
+        if (body.containsKey("content")) concept.setContent((String) body.get("content"));
+        if (body.containsKey("example")) concept.setExample((String) body.get("example"));
+        if (body.containsKey("commonPitfall")) concept.setCommonPitfall((String) body.get("commonPitfall"));
         if (body.containsKey("difficultyLevel")) concept.setDifficultyLevel(((Number) body.get("difficultyLevel")).intValue());
         if (body.containsKey("importanceWeight")) concept.setImportanceWeight(((Number) body.get("importanceWeight")).intValue());
         Concept saved = conceptService.updateConcept(concept);
@@ -87,21 +107,31 @@ public class ConceptApiController {
     @Operation(summary = "创建知识点关系")
     @PostMapping("/relationships")
     public ApiResponse<Relationship> createRelationship(@RequestBody Map<String, Object> body) {
-        String fromConceptId = (String) body.get("fromConceptId");
-        String toConceptId = (String) body.get("toConceptId");
-        String type = (String) body.get("type");
-        Double weight = body.get("weight") != null ? ((Number) body.get("weight")).doubleValue() : 1.0;
-        String description = (String) body.get("description");
+        try {
+            String fromConceptId = (String) body.get("fromConceptId");
+            String toConceptId = (String) body.get("toConceptId");
+            String type = (String) body.get("type");
+            Double weight = body.get("weight") != null ? ((Number) body.get("weight")).doubleValue() : 1.0;
+            String description = (String) body.get("description");
 
-        Concept from = conceptService.findConceptById(fromConceptId)
-                .orElseThrow(() -> new IllegalArgumentException("源知识点未找到"));
-        Concept to = conceptService.findConceptById(toConceptId)
-                .orElseThrow(() -> new IllegalArgumentException("目标知识点未找到"));
+            Concept from = conceptService.findConceptById(fromConceptId)
+                    .orElseThrow(() -> new IllegalArgumentException("源知识点未找到"));
+            Concept to = conceptService.findConceptById(toConceptId)
+                    .orElseThrow(() -> new IllegalArgumentException("目标知识点未找到"));
 
-        Relationship.RelationshipType relType = Relationship.RelationshipType.valueOf(type);
-        Relationship rel = new Relationship(from, to, relType, weight, description);
-        Relationship saved = relationshipService.createRelationship(rel);
-        return ApiResponse.success(saved, "关系创建成功");
+            String fromCourseId = from.getCourse() != null ? from.getCourse().getId() : null;
+            String toCourseId = to.getCourse() != null ? to.getCourse().getId() : null;
+            if (fromCourseId == null || !fromCourseId.equals(toCourseId)) {
+                throw new IllegalArgumentException("不能创建跨课程的知识点关系");
+            }
+
+            Relationship.RelationshipType relType = Relationship.RelationshipType.valueOf(type);
+            Relationship rel = new Relationship(from, to, relType, weight, description);
+            Relationship saved = relationshipService.createRelationship(rel);
+            return ApiResponse.success(saved, "关系创建成功");
+        } catch (Exception e) {
+            return ApiResponse.error("关系创建失败: " + e.getMessage());
+        }
     }
 
     @Operation(summary = "删除知识点关系")

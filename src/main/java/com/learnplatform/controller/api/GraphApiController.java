@@ -3,7 +3,9 @@ package com.learnplatform.controller.api;
 import com.learnplatform.dto.ApiResponse;
 import com.learnplatform.dto.GraphData;
 import com.learnplatform.entity.Concept;
+import com.learnplatform.entity.ConceptProgress;
 import com.learnplatform.security.UserPrincipal;
+import com.learnplatform.service.ConceptProgressService;
 import com.learnplatform.service.GraphService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +25,9 @@ public class GraphApiController {
 
     @Autowired
     private GraphService graphService;
+
+    @Autowired
+    private ConceptProgressService conceptProgressService;
 
     @Operation(summary = "获取课程完整知识图谱", description = "获取课程的概念节点+关系边+用户进度")
     @GetMapping("/{courseId}/full")
@@ -133,6 +138,56 @@ public class GraphApiController {
     ) {
         List<String> related = graphService.getRelatedConcepts(conceptName, courseId);
         return ApiResponse.success(related, "获取相关概念成功");
+    }
+
+    @Operation(summary = "更新知识点学习进度", description = "记录当前用户的知识点学习状态")
+    @PostMapping("/concept/{conceptId}/progress")
+    public ApiResponse<String> updateConceptProgress(
+            @Parameter(description = "知识点ID", required = true)
+            @PathVariable String conceptId,
+            @RequestBody ConceptProgressUpdateRequest request,
+            Authentication authentication
+    ) {
+        try {
+            String userId = getCurrentUserId(authentication);
+            if (userId == null) {
+                return ApiResponse.error("用户未登录", "NOT_AUTHENTICATED");
+            }
+
+            ConceptProgress.ProgressStatus targetStatus = request.resolveStatus();
+            conceptProgressService.updateProgress(userId, conceptId, targetStatus, request.getElapsedMinutes());
+            return ApiResponse.success(null, "知识点进度已更新");
+        } catch (Exception e) {
+            return ApiResponse.error("更新知识点进度失败: " + e.getMessage());
+        }
+    }
+
+    public static class ConceptProgressUpdateRequest {
+        private String status;
+        private int elapsedMinutes;
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public int getElapsedMinutes() {
+            return elapsedMinutes;
+        }
+
+        public void setElapsedMinutes(int elapsedMinutes) {
+            this.elapsedMinutes = elapsedMinutes;
+        }
+
+        public ConceptProgress.ProgressStatus resolveStatus() {
+            if (status == null || status.isBlank()) {
+                return ConceptProgress.ProgressStatus.IN_PROGRESS;
+            }
+            return ConceptProgress.ProgressStatus.valueOf(status);
+        }
     }
 
     private String getCurrentUserId(Authentication authentication) {

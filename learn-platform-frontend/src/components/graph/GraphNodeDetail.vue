@@ -22,7 +22,38 @@
           </span>
         </div>
 
-        <p class="text-muted small">{{ node.description || '暂无描述信息' }}</p>
+        <div class="content-card mb-3">
+          <div class="content-card-label">一句话定义</div>
+          <div class="content-card-text">
+            {{ node.summary || context?.concept?.summary || node.description || context?.concept?.description || '暂无定义' }}
+          </div>
+        </div>
+
+        <div v-if="node.chapterTitle" class="mb-3 small chapter-hint">
+          <i class="bi bi-collection me-1"></i>
+          这是“{{ node.chapterTitle }}”章节下的知识点节点，章节本身不是图谱节点。
+        </div>
+
+        <div v-if="node.content || context?.concept?.content" class="content-card mb-3">
+          <div class="content-card-label">详细讲解</div>
+          <div class="content-card-text pre-wrap">
+            {{ node.content || context?.concept?.content }}
+          </div>
+        </div>
+
+        <div v-if="node.example || context?.concept?.example" class="content-card mb-3 is-accent">
+          <div class="content-card-label">示例</div>
+          <div class="content-card-text pre-wrap">
+            {{ node.example || context?.concept?.example }}
+          </div>
+        </div>
+
+        <div v-if="node.commonPitfall || context?.concept?.commonPitfall" class="content-card mb-3 is-warning">
+          <div class="content-card-label">常见误区</div>
+          <div class="content-card-text pre-wrap">
+            {{ node.commonPitfall || context?.concept?.commonPitfall }}
+          </div>
+        </div>
 
         <div v-if="node.chapterTitle" class="mb-2 small">
           <i class="bi bi-book me-1"></i>
@@ -39,12 +70,19 @@
         <!-- 进度操作 -->
         <div class="mb-3">
           <label class="form-label small fw-bold">掌握状态</label>
-          <select class="form-select form-select-sm" :value="node.progressStatus" @change="onProgressChange">
-            <option value="NOT_STARTED">未开始</option>
-            <option value="IN_PROGRESS">标记进行中</option>
-            <option value="COMPLETED">标记已完成</option>
-            <option value="MASTERED">标记已掌握</option>
-          </select>
+          <div class="status-grid">
+            <button
+              v-for="option in progressOptions"
+              :key="option.value"
+              type="button"
+              class="status-card"
+              :class="[option.className, { active: node.progressStatus === option.value }]"
+              @click="updateProgress(option.value)"
+            >
+              <div class="status-card-title">{{ option.label }}</div>
+              <div class="status-card-desc">{{ option.desc }}</div>
+            </button>
+          </div>
         </div>
 
         <hr>
@@ -167,10 +205,16 @@ const progressBadgeClass = computed(() => {
   return 'bg-light text-dark'
 })
 
-function onProgressChange(e: Event) {
-  const target = e.target as HTMLSelectElement
+const progressOptions = [
+  { value: 'NOT_STARTED', label: '未开始', desc: '还没进入学习', className: 'is-not-started' },
+  { value: 'IN_PROGRESS', label: '进行中', desc: '正在学习中', className: 'is-in-progress' },
+  { value: 'COMPLETED', label: '已完成', desc: '已经学完', className: 'is-completed' },
+  { value: 'MASTERED', label: '已掌握', desc: '可以熟练运用', className: 'is-mastered' }
+] as const
+
+function updateProgress(status: string) {
   if (props.node) {
-    emit('progressChange', props.node.id, target.value)
+    emit('progressChange', props.node.id, status)
   }
 }
 </script>
@@ -187,5 +231,102 @@ function onProgressChange(e: Event) {
 }
 .node-detail-panel.show {
   right: 20px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.status-card {
+  border: 1px solid #dee2e6;
+  border-radius: 0.75rem;
+  background: #fff;
+  text-align: left;
+  padding: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.status-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0.35rem 0.9rem rgba(0, 0, 0, 0.08);
+}
+
+.status-card.active {
+  border-width: 2px;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12);
+}
+
+.status-card-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.status-card-desc {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+}
+
+.status-card.is-not-started.active {
+  border-color: #6c757d;
+  background: #f8f9fa;
+}
+
+.status-card.is-in-progress.active {
+  border-color: #fd7e14;
+  background: #fff3e8;
+}
+
+.status-card.is-completed.active {
+  border-color: #0d6efd;
+  background: #e9f2ff;
+}
+
+.status-card.is-mastered.active {
+  border-color: #198754;
+  background: #eaf7ef;
+}
+
+.content-card {
+  padding: 0.8rem 0.85rem;
+  border-radius: 0.9rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.content-card.is-accent {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.content-card.is-warning {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.content-card-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 0.35rem;
+}
+
+.content-card-text {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: #0f172a;
+}
+
+.chapter-hint {
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.85rem;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.pre-wrap {
+  white-space: pre-wrap;
 }
 </style>

@@ -1,6 +1,7 @@
 package com.learnplatform.service;
 
 import com.learnplatform.entity.Chapter;
+import com.learnplatform.repository.ProgressRepository;
 import com.learnplatform.repository.ChapterRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,12 @@ public class ChapterService {
 
     @Autowired
     private ChapterRepository chapterRepository;
+
+    @Autowired
+    private ConceptService conceptService;
+
+    @Autowired
+    private ProgressRepository progressRepository;
 
     /**
      * 创建章节
@@ -107,7 +114,28 @@ public class ChapterService {
      * 删除章节
      */
     public void deleteChapter(String id) {
+        Chapter chapter = findChapterById(id)
+                .orElseThrow(() -> new IllegalArgumentException("章节未找到"));
+
+        String courseId = chapter.getCourse() != null ? chapter.getCourse().getId() : null;
+        conceptService.deleteConceptsByChapter(id);
+        progressRepository.deleteByChapter_Id(id);
         chapterRepository.deleteById(id);
+
+        if (courseId != null) {
+            reorderChapters(courseId);
+        }
+    }
+
+    public void deleteChaptersByCourse(String courseId) {
+        getChaptersByCourseOrdered(courseId).stream()
+                .map(Chapter::getId)
+                .toList()
+                .forEach(id -> {
+                    conceptService.deleteConceptsByChapter(id);
+                    progressRepository.deleteByChapter_Id(id);
+                    chapterRepository.deleteById(id);
+                });
     }
 
     /**

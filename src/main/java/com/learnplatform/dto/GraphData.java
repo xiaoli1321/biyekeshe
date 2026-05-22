@@ -38,11 +38,16 @@ public class GraphData {
         private String id;
         private String name;
         private String description;
+        private String summary;
+        private String content;
+        private String example;
+        private String commonPitfall;
         private int difficultyLevel;
         private int importanceWeight;
         private String category;          // 知识点类别标签
         private String progressStatus;    // NOT_STARTED / IN_PROGRESS / COMPLETED / MASTERED
         private String chapterId;         // 所属章节ID（用于进度更新）
+        private String chapterGroupId;    // 图谱章节分组ID
         private String chapterTitle;      // 所属章节名称
         private Integer resourceCount;    // 关联学习资源数
         private Double centrality;        // 中心度分数（可选）
@@ -62,6 +67,14 @@ public class GraphData {
         public void setName(String name) { this.name = name; }
         public String getDescription() { return description; }
         public void setDescription(String description) { this.description = description; }
+        public String getSummary() { return summary; }
+        public void setSummary(String summary) { this.summary = summary; }
+        public String getContent() { return content; }
+        public void setContent(String content) { this.content = content; }
+        public String getExample() { return example; }
+        public void setExample(String example) { this.example = example; }
+        public String getCommonPitfall() { return commonPitfall; }
+        public void setCommonPitfall(String commonPitfall) { this.commonPitfall = commonPitfall; }
         public int getDifficultyLevel() { return difficultyLevel; }
         public void setDifficultyLevel(int difficultyLevel) { this.difficultyLevel = difficultyLevel; }
         public int getImportanceWeight() { return importanceWeight; }
@@ -72,6 +85,8 @@ public class GraphData {
         public void setProgressStatus(String progressStatus) { this.progressStatus = progressStatus; }
         public String getChapterId() { return chapterId; }
         public void setChapterId(String chapterId) { this.chapterId = chapterId; }
+        public String getChapterGroupId() { return chapterGroupId; }
+        public void setChapterGroupId(String chapterGroupId) { this.chapterGroupId = chapterGroupId; }
         public String getChapterTitle() { return chapterTitle; }
         public void setChapterTitle(String chapterTitle) { this.chapterTitle = chapterTitle; }
         public Integer getResourceCount() { return resourceCount; }
@@ -122,6 +137,7 @@ public class GraphData {
         private List<String> isolatedNodeIds;
         private List<List<String>> cycles;           // 检测到的环路
         private Map<String, Double> centralityMap;    // 节点ID -> 中心度
+        private Map<String, Integer> chapterGroups;   // 章节名 -> 节点数量
         private boolean hasCycles;
         private int isolatedCount;
 
@@ -139,6 +155,8 @@ public class GraphData {
         public void setCycles(List<List<String>> cycles) { this.cycles = cycles; }
         public Map<String, Double> getCentralityMap() { return centralityMap; }
         public void setCentralityMap(Map<String, Double> centralityMap) { this.centralityMap = centralityMap; }
+        public Map<String, Integer> getChapterGroups() { return chapterGroups; }
+        public void setChapterGroups(Map<String, Integer> chapterGroups) { this.chapterGroups = chapterGroups; }
         public boolean isHasCycles() { return hasCycles; }
         public void setHasCycles(boolean hasCycles) { this.hasCycles = hasCycles; }
         public int getIsolatedCount() { return isolatedCount; }
